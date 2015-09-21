@@ -2813,7 +2813,7 @@ packet(0x020d,-1);
 #if PACKETVER >= 20111122
 	packetKeys(0x3B550F07,0x1F666C7C,0x60304EF5); /* Thanks to Shakto */
 //2011-11-22aRagexeRE
-packet(0x01FD,15,clif->pRepairItem,2);
+/*packet(0x01FD,15,clif->pRepairItem,2);
 packet(0x0891,26,clif->pFriendsListAdd,2);
 packet(0x089E,5,clif->pHomMenu,2,4);
 packet(0x0364,36,clif->pStoragePassword,0);
@@ -2855,7 +2855,7 @@ packet(0x035F,6,clif->pSolveCharName,2);
 packet(0x0907,5,clif->pMoveItem,2,4);
 packet(0x0908,5);
 //0x08D7,28,battlegroundreg,2,4 //Added to prevent disconnections
-
+*/
 
 #endif
 
