@@ -6,4 +6,6 @@
 { "macban",                      99,99,   atcommand_macban },
 { "liftmacban",                  99,99,   atcommand_liftmacban },
 { "showmacban",                  99,99,   atcommand_showmacban },
+{ "checkhotpatch",               99,99,   atcommand_checkhotpatch },
+{ "runhotpatch",                 99,99,   atcommand_runhotpatch },
 

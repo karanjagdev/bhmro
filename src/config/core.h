@@ -27,7 +27,7 @@
 /// CONSOLE_INPUT allows you to type commands into the server's console,
 /// Disabling it saves one thread.
 #define CONSOLE_INPUT
-/// Maximum number of caracters 'CONSOLE_INPUT' will support per line.
+/// Maximum number of characters 'CONSOLE_INPUT' will support per line.
 #define MAX_CONSOLE_INPUT 150
 
 /// Uncomment to disable Hercules' anonymous stat report
@@ -43,7 +43,7 @@
 /// By default, all range checks in Aegis are of Square shapes, so a weapon range
 /// - of 10 allows you to attack from anywhere within a 21x21 area.
 /// Enabling this changes such checks to circular checks, which is more realistic,
-/// - but is not the official behaviour.
+/// - but is not the official behavior.
 //#define CIRCULAR_AREA
 
 //This is the distance at which @autoloot works,
@@ -57,12 +57,15 @@
 /// When uncommented the cap takes place after modifiers.
 //#define HMAP_ZONE_DAMAGE_CAP_TYPE
 
-/// Uncomment to enable Non Stackable items unique ID
-/// By enabling it, the system will create an unique id for each new non stackable item created
-//#define NSI_UNIQUE_ID
+/// Comment to disable Guild/Party Bound item system
+#define GP_BOUND_ITEMS
 
 /// Uncomment to enable real-time server stats (in and out data and ram usage). [Ai4rei]
 //#define SHOW_SERVER_STATS
+
+
+/// Comment to disable autotrade persistency (where autotrading merchants survive server restarts)
+#define AUTOTRADE_PERSISTENCY
 
 /**
  * No settings past this point

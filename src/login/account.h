@@ -1,11 +1,13 @@
-// Copyright (c) Athena Dev Teams - Licensed under GNU GPL
-// For more information, see LICENCE in the main folder
+// Copyright (c) Hercules Dev Team, licensed under GNU GPL.
+// See the LICENSE file
+// Portions Copyright (c) Athena Dev Teams
 
-#ifndef __ACCOUNT_H_INCLUDED__
-#define __ACCOUNT_H_INCLUDED__
+#ifndef _LOGIN_ACCOUNT_H_
+#define _LOGIN_ACCOUNT_H_
 
 #include "../common/cbasetypes.h"
 #include "../common/mmo.h" // ACCOUNT_REG2_NUM
+#include "../common/sql.h" // Sql
 
 typedef struct AccountDB AccountDB;
 typedef struct AccountDBIterator AccountDBIterator;
@@ -24,7 +26,7 @@ struct mmo_account
 	char mac_address[20];       // Harmony v3
 	int group_id;               // player group id
 	uint8 char_slots;           // this accounts maximum character slots (maximum is limited to MAX_CHARS define in char server)
-	unsigned int state;         // packet 0x006a value + 1 (0: compte OK)
+	unsigned int state;         // packet 0x006a value + 1 (0: complete OK)
 	time_t unban_time;          // (timestamp): ban time limit of the account (0 = no ban)
 	time_t expiration_time;     // (timestamp): validity limit of the account (0 = unlimited)
 	unsigned int logincount;    // number of successful auth attempts
@@ -33,8 +35,6 @@ struct mmo_account
 	char lastlogin[24];         // date+time of last successful login
 	char last_ip[16];           // save of last IP of connection
 	char birthdate[10+1];       // assigned birth date (format: YYYY-MM-DD, default: 0000-00-00)
-	int account_reg2_num;
-	struct global_reg account_reg2[ACCOUNT_REG2_NUM]; // account script variables (stored on login server)
 };
 
 
@@ -67,7 +67,7 @@ struct AccountDB
 	///
 	/// @param self Database
 	void (*destroy)(AccountDB* self);
-
+	
 	/*** HARMONY v3 ***/
 	bool (*is_mac_banned)(AccountDB* self, const char *mac);
 
@@ -141,4 +141,7 @@ struct AccountDB
 
 Sql *account_db_sql_up(AccountDB* self);
 
-#endif // __ACCOUNT_H_INCLUDED__
+void mmo_send_accreg2(AccountDB* self, int fd, int account_id, int char_id);
+void mmo_save_accreg2(AccountDB* self, int fd, int account_id, int char_id);
+
+#endif /* _LOGIN_ACCOUNT_H_ */

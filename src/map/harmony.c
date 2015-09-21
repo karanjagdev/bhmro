@@ -1,10 +1,9 @@
-// (c) 2008 - 2012 Harmony Project; Daniel Stelter-Gliese / Sirius_White
-//
-//  - white@siriuswhite.de
-//  - ICQ #119-153
-//  - MSN msn@siriuswhite.de
+// (c) 2008 - 2013 Harmony Project; Daniel Stelter-Gliese / Sirius_White
+//  For more information contact info@harmonize.it
 //
 // This file is NOT public - you are not allowed to distribute it.
+#define HERCULES_CORE
+
 #include "../common/cbasetypes.h"
 #include "../common/showmsg.h"
 #include "../common/db.h"
@@ -13,6 +12,7 @@
 #include "../common/socket.h"
 #include "../common/timer.h"
 #include "../common/sql.h"
+#include "../common/console.h"
 #include "../common/harmony.h"
 
 #ifndef HARMSW
@@ -35,7 +35,7 @@
 
 void _FASTCALL harmony_action_request(int fd, int task, int id, intptr data);
 void _FASTCALL harmony_log(int fd, const char *msg);
-static int harmony_group_register_timer(int tid, unsigned int tick, int id, intptr data);
+static int harmony_group_register_timer(int tid, int64 tick, int id, intptr data);
 
 // ----
 
@@ -53,71 +53,38 @@ static int log_method = LOG_TRYSQL;
 static int tid_group_register = INVALID_TIMER;
 static int current_groupscan_minlevel = 0;
 
-#ifdef HARMONY_USE_POINTLESS_OOP_INTERFACE
-	#define SqlStmt_Malloc                SQL->StmtMalloc
-	#define SqlStmt_Prepare               SQL->StmtPrepare
-	#define SqlStmt_BindParam             SQL->StmtBindParam
-	#define SqlStmt_BindColumn            SQL->StmtBindColumn
-	#define SqlStmt_Execute               SQL->StmtExecute
-	#define SqlStmt_Free                  SQL->StmtFree
-	#define Sql_EscapeStringLen           SQL->EscapeStringLen
-	#define SqlStmt_NextRow               SQL->StmtNextRow
-	#define Sql_QueryStr                  SQL->QueryStr
-	#define Sql_Query                     SQL->Query
-	#define Sql_NumRows                   SQL->NumRows
-	
-	#define chrif_isconnected             chrif->isconnected
-	#define map_id2bl                     iMap->id2bl
-	#define map_mapname2mapid             iMap->mapname2mapid
-	
-	#define clif_send                     clif->send
-	#define clif_authfail_fd              clif->authfail_fd
-	#define clif_displaymessage           clif->message
-	#define is_atcommand                  atcommand->parse
-	#define run_script                    script->run
-	
-	#define pc_group_id2level             _harmony_localfix_pc_group_id2level
-#endif
-
-int _harmony_localfix_pc_group_id2level(int id) {
-	GroupSettings* group = pc_group_id2group(id);
-	if (!group)
-		return 0;
-	return pc_group_get_level(group);
-}
-
 // ----
 
 void harmony_init() {
-	if (logmysql_handle != NULL) {
-		log_stmt =  SqlStmt_Malloc(logmysql_handle);
-		if (SQL_SUCCESS != SqlStmt_Prepare(log_stmt, "INSERT DELAYED INTO harmony_log (`account_id`, `char_name`, `IP`, `data`) VALUES (?, ?, ?, ?)")) {
+	if (logs->mysql_handle != NULL) {
+		log_stmt =  SQL->StmtMalloc(logs->mysql_handle);
+		if (SQL_SUCCESS != SQL->StmtPrepare(log_stmt, "INSERT DELAYED INTO harmony_log (`account_id`, `char_name`, `IP`, `data`) VALUES (?, ?, ?, ?)")) {
 			ShowFatalError("Harmony: Preparing statement 1 failed.\n");
-			Sql_ShowDebug(logmysql_handle);
+			Sql_ShowDebug(logs->mysql_handle);
 			exit(EXIT_FAILURE);
 		}
 	}
 
-	if (mmysql_handle == NULL) {
+	if (map->mysql_handle == NULL) {
 		ShowFatalError("Harmony: SQL is not yet initialized. Please report this!\n");
 		exit(EXIT_FAILURE);
 	}
 
-	ban_stmt = SqlStmt_Malloc(mmysql_handle);
-	if (SQL_SUCCESS != SqlStmt_Prepare(ban_stmt, "UPDATE login SET state = ? WHERE account_id = ?")) {
+	ban_stmt = SQL->StmtMalloc(map->mysql_handle);
+	if (SQL_SUCCESS != SQL->StmtPrepare(ban_stmt, "UPDATE login SET state = ? WHERE account_id = ?")) {
 		ShowFatalError("Harmony: Preparing statement 2 failed.\n");
-		Sql_ShowDebug(mmysql_handle);
+		Sql_ShowDebug(map->mysql_handle);
 		exit(EXIT_FAILURE);
 	}
 
-	admin_stmt = SqlStmt_Malloc(mmysql_handle);
+	admin_stmt = SQL->StmtMalloc(map->mysql_handle);
 #if HARMSW == HARMSW_RATHENA_GROUP
-	if (SQL_SUCCESS != SqlStmt_Prepare(admin_stmt, "SELECT account_id FROM `login` WHERE `group_id` = ?")) {
+	if (SQL_SUCCESS != SQL->StmtPrepare(admin_stmt, "SELECT account_id FROM `login` WHERE `group_id` = ?")) {
 #else
-	if (SQL_SUCCESS != SqlStmt_Prepare(admin_stmt, "SELECT account_id FROM `login` WHERE `level` >= ?")) {
+	if (SQL_SUCCESS != SQL->StmtPrepare(admin_stmt, "SELECT account_id FROM `login` WHERE `group_id` >= ?")) {
 #endif
 		ShowFatalError("Harmony: Preparing statement 3 failed.\n");
-		Sql_ShowDebug(mmysql_handle);
+		Sql_ShowDebug(map->mysql_handle);
 		exit(EXIT_FAILURE);
 	}
 
@@ -130,13 +97,13 @@ void harmony_init() {
 void harmony_final() {
 	harm_funcs->zone_final();
 	if (log_stmt) {
-		SqlStmt_Free(log_stmt);
+		SQL->StmtFree(log_stmt);
 		log_stmt = NULL;
 	}
-	SqlStmt_Free(ban_stmt);
-	SqlStmt_Free(admin_stmt);
+	SQL->StmtFree(ban_stmt);
+	SQL->StmtFree(admin_stmt);
 	if (tid_group_register != INVALID_TIMER) {
-		_athena_delete_timer(tid_group_register, harmony_group_register_timer);
+		timer->delete(tid_group_register, harmony_group_register_timer);
 		tid_group_register = INVALID_TIMER;
 	}
 }
@@ -147,25 +114,25 @@ void harmony_parse(int fd,struct map_session_data *sd) {
 void harmony_ban(int32 account_id, int state) {
 	if (!ban_stmt)
 		return;
-	if (SQL_SUCCESS != SqlStmt_BindParam(ban_stmt, 0, SQLDT_INT, (void*)&state, sizeof(state)) ||
-		SQL_SUCCESS != SqlStmt_BindParam(ban_stmt, 1, SQLDT_INT, (void*)&account_id, sizeof(account_id)) ||
-		SQL_SUCCESS != SqlStmt_Execute(ban_stmt))
+	if (SQL_SUCCESS != SQL->StmtBindParam(ban_stmt, 0, SQLDT_INT, (void*)&state, sizeof(state)) ||
+		SQL_SUCCESS != SQL->StmtBindParam(ban_stmt, 1, SQLDT_INT, (void*)&account_id, sizeof(account_id)) ||
+		SQL_SUCCESS != SQL->StmtExecute(ban_stmt))
 	{
-		Sql_ShowDebug(mmysql_handle);
+		Sql_ShowDebug(map->mysql_handle);
 	}
 	ShowMessage(""CL_MAGENTA"[Harmony]"CL_RESET": Banned account #%d (state %d)\n", account_id, state);
 }
 
 int harmony_log_sql(TBL_PC* sd, const char* ip, const char* msg) {
-	if (!logmysql_handle || !log_stmt)
+	if (!logs->mysql_handle || !log_stmt)
 		return 0;
-	if (SQL_SUCCESS != SqlStmt_BindParam(log_stmt, 0, SQLDT_INT, (void*)&sd->status.account_id, sizeof(sd->status.account_id)) ||
-		SQL_SUCCESS != SqlStmt_BindParam(log_stmt, 1, SQLDT_STRING, (void*)&sd->status.name, strlen(sd->status.name)) ||
-		SQL_SUCCESS != SqlStmt_BindParam(log_stmt, 2, SQLDT_STRING, (void*)ip, strlen(ip)) ||
-		SQL_SUCCESS != SqlStmt_BindParam(log_stmt, 3, SQLDT_STRING, (void*)msg, strlen(msg)) ||
-		SQL_SUCCESS != SqlStmt_Execute(log_stmt))
+	if (SQL_SUCCESS != SQL->StmtBindParam(log_stmt, 0, SQLDT_INT, (void*)&sd->status.account_id, sizeof(sd->status.account_id)) ||
+		SQL_SUCCESS != SQL->StmtBindParam(log_stmt, 1, SQLDT_STRING, (void*)&sd->status.name, strlen(sd->status.name)) ||
+		SQL_SUCCESS != SQL->StmtBindParam(log_stmt, 2, SQLDT_STRING, (void*)ip, strlen(ip)) ||
+		SQL_SUCCESS != SQL->StmtBindParam(log_stmt, 3, SQLDT_STRING, (void*)msg, strlen(msg)) ||
+		SQL_SUCCESS != SQL->StmtExecute(log_stmt))
 	{
-		Sql_ShowDebug(logmysql_handle);
+		Sql_ShowDebug(logs->mysql_handle);
 		return 0;
 	}
 	return 1;
@@ -219,13 +186,13 @@ static void harmony_register_groups() {
 #endif
 }
 
-static int harmony_group_register_timer(int tid, unsigned int tick, int id, intptr data) {
-	if (chrif_isconnected()) {
+static int harmony_group_register_timer(int tid, int64 tick, int id, intptr data) {
+	if (chrif->isconnected()) {
 		harmony_register_groups();
 		
 		// We will re-send group associations every thirty seconds, otherwise the login server would never be able to recover from a restart
-		_athena_delete_timer(tid, harmony_group_register_timer);
-		tid_group_register = _athena_add_timer_interval(_athena_gettick()+30*1000, harmony_group_register_timer, 0, 0, 30*1000);
+		timer->delete(tid, harmony_group_register_timer);
+		tid_group_register = timer->add_interval(timer->gettick()+30*1000, harmony_group_register_timer, 0, 0, 30*1000);
 	}
 	return 0;
 }
@@ -237,16 +204,16 @@ static bool harmony_iterate_groups_adminlevel(int group_id, int level, const cha
 		return true;
 
 	ShowInfo("Registering group %d..\n", group_id);
-	if (SQL_SUCCESS != SqlStmt_BindParam(admin_stmt, 0, SQLDT_INT, (void*)&group_id, sizeof(group_id)) ||
-		SQL_SUCCESS != SqlStmt_Execute(admin_stmt))
+	if (SQL_SUCCESS != SQL->StmtBindParam(admin_stmt, 0, SQLDT_INT, (void*)&group_id, sizeof(group_id)) ||
+		SQL_SUCCESS != SQL->StmtExecute(admin_stmt))
 	{
 		ShowError("Fetching GM accounts from group %d failed.\n", group_id);
-		Sql_ShowDebug(mmysql_handle);
+		Sql_ShowDebug(map->mysql_handle);
 		return true;
 	}
 
-	SqlStmt_BindColumn(admin_stmt, 0, SQLDT_INT, &account_id, 0, NULL, NULL);
-	while (SQL_SUCCESS == SqlStmt_NextRow(admin_stmt)) {
+	SQL->StmtBindColumn(admin_stmt, 0, SQLDT_INT, &account_id, 0, NULL, NULL);
+	while (SQL_SUCCESS == SQL->StmtNextRow(admin_stmt)) {
 		harm_funcs->zone_register_admin(account_id, false);
 	}
 	return true;
@@ -259,7 +226,7 @@ void harmony_action_request_global(int task, int id, intptr data) {
 		break;
 	case HARMTASK_GET_FD:
 		{
-		TBL_PC *sd = BL_CAST(BL_PC, map_id2bl(id));
+		TBL_PC *sd = BL_CAST(BL_PC, map->id2bl(id));
 		*(int32*)data = (sd ? sd->fd : 0);
 		}
 		break;
@@ -267,24 +234,27 @@ void harmony_action_request_global(int task, int id, intptr data) {
 		log_method = id;
 		break;
 	case HARMTASK_INIT_GROUPS:
-		if (chrif_isconnected())
+		if (chrif->isconnected())
 			harmony_register_groups();
 		else {
 			// Register groups as soon as the char server is available again
 			if (tid_group_register != INVALID_TIMER)
-				_athena_delete_timer(tid_group_register, harmony_group_register_timer);
-			tid_group_register = _athena_add_timer_interval(_athena_gettick()+1000, harmony_group_register_timer, 0, 0, 500);
+				timer->delete(tid_group_register, harmony_group_register_timer);
+			tid_group_register = timer->add_interval(timer->gettick()+1000, harmony_group_register_timer, 0, 0, 500);
 		}
 		break;
 	case HARMTASK_RESOLVE_GROUP:
 #if HARMSW == HARMSW_RATHENA_GROUP
-		*(int32*)data = pc_group_id2level(id);
+		{
+		TBL_PC *sd = BL_CAST(BL_PC, map->id2bl(id));	
+		*(int32*)data = pc_get_group_level(sd);
+		}
 #else
 		*(int32*)data = id;
 #endif
 		break;
 	case HARMTASK_PACKET:
-		clif_send((const uint8*)data, id, NULL, ALL_CLIENT);
+		clif->send((const uint8*)data, id, NULL, ALL_CLIENT);
 		break;
 	case HARMTASK_GET_ADMINS:
 	{
@@ -296,23 +266,23 @@ void harmony_action_request_global(int task, int id, intptr data) {
 		//
 		int account_id;
 		int level = id;
-		if (SQL_SUCCESS != SqlStmt_BindParam(admin_stmt, 0, SQLDT_INT, (void*)&level, sizeof(level)) ||
-			SQL_SUCCESS != SqlStmt_Execute(admin_stmt))
+		if (SQL_SUCCESS != SQL->StmtBindParam(admin_stmt, 0, SQLDT_INT, (void*)&level, sizeof(level)) ||
+			SQL_SUCCESS != SQL->StmtExecute(admin_stmt))
 		{
 			ShowError("Fetching GM accounts failed.\n");
-			Sql_ShowDebug(mmysql_handle);
+			Sql_ShowDebug(map->mysql_handle);
 			break;
 		}
 
-		SqlStmt_BindColumn(admin_stmt, 0, SQLDT_INT, &account_id, 0, NULL, NULL);
-		while (SQL_SUCCESS == SqlStmt_NextRow(admin_stmt)) {
+		SQL->StmtBindColumn(admin_stmt, 0, SQLDT_INT, &account_id, 0, NULL, NULL);
+		while (SQL_SUCCESS == SQL->StmtNextRow(admin_stmt)) {
 			harm_funcs->zone_register_admin(account_id, false);
 		}
 #endif
 		break;
 	}
 	case HARMTASK_IS_CHAR_CONNECTED:
-		*(int*)data = chrif_isconnected();
+		*(int*)data = chrif->isconnected();
 		break;
 	default:
 		ShowError("Harmony requested unknown action! (Global; ID=%d)\n", task);
@@ -332,7 +302,7 @@ void _FASTCALL harmony_action_request(int fd, int task, int id, intptr data) {
 	switch (task) {
 	case HARMTASK_PACKET:
 		memcpy(WFIFOP(fd, 0), (const void*)data, id);
-		ShowInfo("Sending %d bytes to session #%d (%x)\n", id, fd, WFIFOW(fd, 0));
+		//ShowInfo("Sending %d bytes to session #%d (%x)\n", id, fd, WFIFOW(fd, 0));
 		WFIFOSET(fd, id);
 		return;
 	}
@@ -351,23 +321,23 @@ void _FASTCALL harmony_action_request(int fd, int task, int id, intptr data) {
 		if (id == 99)
 			set_eof(fd);
 		else
-			clif_authfail_fd(fd, id);
+			clif->authfail_fd(fd, id);
 		break;
 	case HARMTASK_JAIL:
 	{
 		char msg[64];
 		snprintf(msg, sizeof(msg)-1, "@jail %s", sd->status.name);
-		is_atcommand(0, sd, msg, 0);
+		atcommand->exec(0, sd, msg, 0);
 	}
 		break;
 	case HARMTASK_BAN:
 		harmony_ban(sd->status.account_id, id);
 		break;
 	case HARMTASK_ATCMD:
-		is_atcommand(fd, sd, (const char*)data, 0);
+		atcommand->exec(fd, sd, (const char*)data, 0);
 		break;
 	case HARMTASK_MSG:
-		clif_displaymessage(fd, (const char*)data);
+		clif->message(fd, (const char*)data);
 		break;
 	case HARMTASK_IS_ACTIVE:
 		*(int32*)data = (sd->bl.prev == NULL || sd->invincible_timer != INVALID_TIMER) ? 0 : 1;
@@ -391,7 +361,7 @@ void _FASTCALL harmony_action_request(int fd, int task, int id, intptr data) {
 			break;
 		case HARMID_GM:
 #if HARMSW == HARMSW_RATHENA_GROUP
-			*(int*)data = pc_group_id2level(sd->group_id);
+			*(int*)data = pc_get_group_level(sd);
 #else
 			*(int*)data = pc_isGM(sd);
 #endif
@@ -404,9 +374,10 @@ void _FASTCALL harmony_action_request(int fd, int task, int id, intptr data) {
 		break;
 	case HARMTASK_SCRIPT:
 		{
-			struct npc_data* nd = npc_name2id((const char*)data);
+			struct npc_data* nd = npc->name2id((const char*)data);
 			if (nd) {
-				run_script(nd->u.scr.script, 0, sd->bl.id, fake_nd->bl.id);
+				script->run(nd->u.scr.script, 0, sd->bl.id, npc->fake_nd->bl.id);
+				//script->run(nd->u.scr.script, 0, sd->bl.id, npc->fake_nd->bl.id);
 			} else {
 				ShowError("A Harmony action chain tried to execute non-existing script '%s'\n", data);
 			}

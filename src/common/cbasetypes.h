@@ -1,5 +1,5 @@
-#ifndef _CBASETYPES_H_
-#define _CBASETYPES_H_
+#ifndef _COMMON_CBASETYPES_H_
+#define _COMMON_CBASETYPES_H_
 
 /*              +--------+-----------+--------+---------+
  *              | ILP32  |   LP64    |  ILP64 | (LL)P64 |
@@ -37,10 +37,27 @@
 #define CYGWIN
 #endif
 
-// __APPLE__ is the only predefined macro on MacOS X
+// __APPLE__ is the only predefined macro on MacOS
 #if defined(__APPLE__)
 #define __DARWIN__
 #endif
+
+// Standardize the ARM platform version, if available (the only values we're interested in right now are >= ARMv6)
+#if defined(__ARMV6__) || defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) || defined(__ARM_ARCH_6K__) \
+	|| defined(__ARM_ARCH_6Z__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__) // gcc ARMv6
+#define __ARM_ARCH_VERSION__ 6
+#elif defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7S__) // gcc ARMv7
+#define __ARM_ARCH_VERSION__ 7
+#elif defined(_M_ARM) // MSVC
+#define __ARM_ARCH_VERSION__ _M_ARM
+#else
+#define __ARM_ARCH_VERSION__ 0
+#endif
+
+// Necessary for __NetBSD_Version__ (defined as VVRR00PP00) on NetBSD
+#ifdef __NETBSD__
+#include <sys/param.h>
+#endif // __NETBSD__
 
 // 64bit OS
 #if defined(_M_IA64) || defined(_M_X64) || defined(_WIN64) || defined(_LP64) || defined(_ILP64) || defined(__LP64__) || defined(__ppc64__)
@@ -92,9 +109,9 @@
 // (-20 >= USHRT_MAX) returns true
 #if defined(__FreeBSD__) && defined(__x86_64)
 #undef UCHAR_MAX
-#define UCHAR_MAX (unsigned char)0xff
+#define UCHAR_MAX ((unsigned char)0xff)
 #undef USHRT_MAX
-#define USHRT_MAX (unsigned short)0xffff
+#define USHRT_MAX ((unsigned short)0xffff)
 #endif
 
 // ILP64 isn't supported, so always 32 bits?
@@ -180,7 +197,7 @@ typedef unsigned long int   ppuint32;
 
 #if defined(WIN32) && !defined(MINGW) // does not have a signed size_t
 //////////////////////////////
-#if defined(_WIN64)	// naive 64bit windows platform
+#if defined(_WIN64)	// native 64bit windows platform
 typedef __int64			ssize_t;
 #else
 typedef int				ssize_t;
@@ -255,6 +272,13 @@ typedef uintptr_t uintptr;
 #define ra_align(n) __attribute__(( aligned(n) ))
 #endif
 
+// Directives for the (clang) static analyzer
+#ifdef __clang__
+#define analyzer_noreturn __attribute__((analyzer_noreturn))
+#else
+#define analyzer_noreturn
+#endif
+
 
 /////////////////////////////
 // for those still not building c++
@@ -289,11 +313,13 @@ typedef char bool;
 #undef swap
 #endif
 // hmm only ints?
-//#define swap(a,b) { int temp=a; a=b; b=temp;} 
+//#define swap(a,b) { int temp=a; a=b; b=temp;}
 // if using macros then something that is type independent
 //#define swap(a,b) ((a == b) || ((a ^= b), (b ^= a), (a ^= b)))
 // Avoid "value computed is not used" warning and generates the same assembly code
-#define swap(a,b) if (a != b) ((a ^= b), (b ^= a), (a ^= b))
+//#define swap(a,b) if (a != b) ((a ^= b), (b ^= a), (a ^= b))
+// but is vulnerable to 'if (foo) swap(bar, baz); else quux();', causing the else to nest incorrectly.
+#define swap(a,b) do { if ((a) != (b)) { (a) ^= (b); (b) ^= (a); (a) ^= (b); } } while(0)
 #if 0 //to be activated soon, more tests needed on how VS works with the macro above
 #ifdef WIN32
 #undef swap
@@ -313,7 +339,7 @@ typedef char bool;
 #endif
 #endif
 
-#define swap_ptr(a,b) if ((a) != (b)) ((a) = (void*)((intptr_t)(a) ^ (intptr_t)(b)), (b) = (void*)((intptr_t)(a) ^ (intptr_t)(b)), (a) = (void*)((intptr_t)(a) ^ (intptr_t)(b)))
+#define swap_ptr(a,b) do { if ((a) != (b)) (a) = (void*)((intptr_t)(a) ^ (intptr_t)(b)); (b) = (void*)((intptr_t)(a) ^ (intptr_t)(b)); (a) = (void*)((intptr_t)(a) ^ (intptr_t)(b)); } while(0)
 
 #ifndef max
 #define max(a,b) (((a) > (b)) ? (a) : (b))
@@ -341,31 +367,14 @@ typedef char bool;
 #if defined(WIN32)
 #define PATHSEP '\\'
 #define PATHSEP_STR "\\"
-#elif defined(__APPLE__)
-// FIXME Mac OS X is unix based, is this still correct?
+#elif defined(__APPLE__) && !defined(__MACH__)
+// __MACH__ indicates OS X ( http://sourceforge.net/p/predef/wiki/OperatingSystems/ )
 #define PATHSEP ':'
 #define PATHSEP_STR ":"
 #else
 #define PATHSEP '/'
 #define PATHSEP_STR "/"
 #endif
-
-//////////////////////////////////////////////////////////////////////////
-// Assert
-
-#if ! defined(Assert)
-#if defined(RELEASE)
-#define Assert(EX)
-#else
-// extern "C" {
-#include <assert.h>
-// }
-#if !defined(DEFCPP) && defined(WIN32) && !defined(MINGW)
-#include <crtdbg.h>
-#endif
-#define Assert(EX) assert(EX)
-#endif
-#endif /* ! defined(Assert) */
 
 //////////////////////////////////////////////////////////////////////////
 // Has to be unsigned to avoid problems in some systems
@@ -403,7 +412,7 @@ typedef char bool;
 
 
 //////////////////////////////////////////////////////////////////////////
-// Use the preprocessor to 'stringify' stuff (concert to a string).
+// Use the preprocessor to 'stringify' stuff (convert to a string).
 // example:
 //   #define TESTE blabla
 //   QUOTE(TESTE) -> "TESTE"
@@ -429,9 +438,15 @@ void SET_FUNCPOINTER(T1& var, T2 p)
 	var = tmp.out;
 }
 #else
-#define SET_POINTER(var,p) (var) = (p)
-#define SET_FUNCPOINTER(var,p) (var) = (p)
+#define SET_POINTER(var,p) ((var) = (p))
+#define SET_FUNCPOINTER(var,p) ((var) = (p))
 #endif
 
+/* pointer size fix which fixes several gcc warnings */
+#ifdef __64BIT__
+	#define __64BPTRSIZE(y) ((intptr)(y))
+#else
+	#define __64BPTRSIZE(y) (y)
+#endif
 
-#endif /* _CBASETYPES_H_ */
+#endif /* _COMMON_CBASETYPES_H_ */

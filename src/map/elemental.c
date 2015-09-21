@@ -2,59 +2,63 @@
 // See the LICENSE file
 // Portions Copyright (c) Athena Dev Teams
 
-#include "../common/cbasetypes.h"
-#include "../common/malloc.h"
-#include "../common/socket.h"
-#include "../common/timer.h"
-#include "../common/nullpo.h"
-#include "../common/mmo.h"
-#include "../common/showmsg.h"
-#include "../common/utils.h"
-#include "../common/random.h"
-#include "../common/strlib.h"
+#define HERCULES_CORE
 
-#include "log.h"
-#include "clif.h"
-#include "chrif.h"
-#include "intif.h"
-#include "itemdb.h"
-#include "map.h"
-#include "pc.h"
-#include "status.h"
-#include "skill.h"
-#include "mob.h"
-#include "pet.h"
-#include "battle.h"
-#include "party.h"
-#include "guild.h"
-#include "atcommand.h"
-#include "script.h"
-#include "npc.h"
-#include "trade.h"
-#include "unit.h"
 #include "elemental.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
+
+#include "atcommand.h"
+#include "battle.h"
+#include "chrif.h"
+#include "clif.h"
+#include "guild.h"
+#include "intif.h"
+#include "itemdb.h"
+#include "log.h"
+#include "map.h"
+#include "mob.h"
+#include "npc.h"
+#include "party.h"
+#include "pc.h"
+#include "pet.h"
+#include "script.h"
+#include "skill.h"
+#include "status.h"
+#include "trade.h"
+#include "unit.h"
+#include "../common/cbasetypes.h"
+#include "../common/malloc.h"
+#include "../common/mmo.h"
+#include "../common/nullpo.h"
+#include "../common/random.h"
+#include "../common/showmsg.h"
+#include "../common/socket.h"
+#include "../common/strlib.h"
+#include "../common/timer.h"
+#include "../common/utils.h"
+
+struct elemental_interface elemental_s;
 
 int elemental_search_index(int class_) {
 	int i;
-	ARR_FIND(0, MAX_ELEMENTAL_CLASS, i, elemental->elemental_db[i].class_ == class_);
+	ARR_FIND(0, MAX_ELEMENTAL_CLASS, i, elemental->db[i].class_ == class_);
 	return (i == MAX_ELEMENTAL_CLASS)?-1:i;
 }
 
 bool elemental_class(int class_) {
-	return (bool)(elemental_search_index(class_) > -1);
+	return (bool)(elemental->search_index(class_) > -1);
 }
 
 struct view_data * elemental_get_viewdata(int class_) {
-	int i = elemental_search_index(class_);
+	int i = elemental->search_index(class_);
 	if( i < 0 )
 		return 0;
 
-	return &elemental->elemental_db[i].vd;
+	return &elemental->db[i].vd;
 }
 
 int elemental_create(struct map_session_data *sd, int class_, unsigned int lifetime) {
@@ -64,10 +68,10 @@ int elemental_create(struct map_session_data *sd, int class_, unsigned int lifet
 
 	nullpo_retr(1,sd);
 
-	if( (i = elemental_search_index(class_)) < 0 )
+	if( (i = elemental->search_index(class_)) < 0 )
 		return 0;
 
-	db = &elemental->elemental_db[i];
+	db = &elemental->db[i];
 	memset(&ele,0,sizeof(struct s_elemental));
 
 	ele.char_id = sd->status.char_id;
@@ -75,27 +79,27 @@ int elemental_create(struct map_session_data *sd, int class_, unsigned int lifet
 	ele.mode = EL_MODE_PASSIVE; // Initial mode
 	i = db->status.size+1; // summon level
 
-	//[(Caster�s Max HP/ 3 ) + (Caster�s INT x 10 )+ (Caster�s Job Level x 20 )] x [(Elemental Summon Level + 2) / 3]
+	//[(Caster's Max HP/ 3 ) + (Caster's INT x 10 )+ (Caster's Job Level x 20 )] x [(Elemental Summon Level + 2) / 3]
 	ele.hp = ele.max_hp = (sd->battle_status.max_hp/3 + sd->battle_status.int_*10 + sd->status.job_level) * ((i + 2) / 3);
-	//Caster�s Max SP /4
+	//Caster's Max SP /4
 	ele.sp = ele.max_sp = sd->battle_status.max_sp/4;
-	//Caster�s [ Max SP / (18 / Elemental Summon Skill Level) 1- 100 ]
+	//Caster's [ Max SP / (18 / Elemental Summon Skill Level) 1- 100 ]
 	ele.atk = (sd->battle_status.max_sp / (18 / i)  * 1 - 100);
-	//Caster�s [ Max SP / (18 / Elemental Summon Skill Level) ]
+	//Caster's [ Max SP / (18 / Elemental Summon Skill Level) ]
 	ele.atk2 = sd->battle_status.max_sp / 18;
-	//Caster�s HIT + (Caster�s Base Level )
+	//Caster's HIT + (Caster's Base Level)
 	ele.hit = sd->battle_status.hit + sd->status.base_level;
-	//[Elemental Summon Skill Level x (Caster�s INT / 2 + Caster�s DEX / 4)]
+	//[Elemental Summon Skill Level x (Caster's INT / 2 + Caster's DEX / 4)]
 	ele.matk = i * (sd->battle_status.int_ / 2 + sd->battle_status.dex / 4);
-	//150 + [Caster�s DEX / 10] + [Elemental Summon Skill Level x 3 ]
+	//150 + [Caster's DEX / 10] + [Elemental Summon Skill Level x 3 ]
 	ele.amotion = 150 + sd->battle_status.dex / 10 + i * 3;
-	//Caster�s DEF + (Caster�s Base Level / (5 � Elemental Summon Skill Level)
+	//Caster's DEF + (Caster's Base Level / (5 - Elemental Summon Skill Level)
 	ele.def = sd->battle_status.def + sd->status.base_level / (5-i);
-	//Caster�s MDEF + (Caster�s INT / (5 - Elemental Summon Skill Level)
+	//Caster's MDEF + (Caster's INT / (5 - Elemental Summon Skill Level)
 	ele.mdef = sd->battle_status.mdef + sd->battle_status.int_ / (5-i);
-	//Caster�s FLEE + (Caster�s Base Level / (5 � Elemental Summon Skill Level)
+	//Caster's FLEE + (Caster's Base Level / (5 - Elemental Summon Skill Level)
 	ele.flee = sd->status.base_level / (5-i);
-	//Caster�s HIT + (Caster�s Base Level )
+	//Caster's HIT + (Caster's Base Level)
 	ele.hit = sd->battle_status.hit + sd->status.base_level;
 
 	//per individual bonuses
@@ -145,8 +149,8 @@ int elemental_get_lifetime(struct elemental_data *ed) {
 	if( ed == NULL || ed->summon_timer == INVALID_TIMER )
 		return 0;
 
-	td = iTimer->get_timer(ed->summon_timer);
-	return (td != NULL) ? DIFF_TICK(td->tick, iTimer->gettick()) : 0;
+	td = timer->get(ed->summon_timer);
+	return (td != NULL) ? DIFF_TICK32(td->tick, timer->gettick()) : 0;
 }
 
 int elemental_save(struct elemental_data *ed) {
@@ -167,17 +171,17 @@ int elemental_save(struct elemental_data *ed) {
 	return 1;
 }
 
-static int elemental_summon_end(int tid, unsigned int tick, int id, intptr_t data) {
+int elemental_summon_end_timer(int tid, int64 tick, int id, intptr_t data) {
 	struct map_session_data *sd;
 	struct elemental_data *ed;
 
-	if( (sd = iMap->id2sd(id)) == NULL )
+	if( (sd = map->id2sd(id)) == NULL )
 		return 1;
 	if( (ed = sd->ed) == NULL )
 		return 1;
 
 	if( ed->summon_timer != tid ) {
-		ShowError("elemental_summon_end %d != %d.\n", ed->summon_timer, tid);
+		ShowError("elemental_summon_end_timer %d != %d.\n", ed->summon_timer, tid);
 		return 0;
 	}
 
@@ -190,7 +194,7 @@ static int elemental_summon_end(int tid, unsigned int tick, int id, intptr_t dat
 void elemental_summon_stop(struct elemental_data *ed) {
 	nullpo_retv(ed);
 	if( ed->summon_timer != INVALID_TIMER )
-		iTimer->delete_timer(ed->summon_timer, elemental_summon_end);
+		timer->delete(ed->summon_timer, elemental->summon_end_timer);
 	ed->summon_timer = INVALID_TIMER;
 }
 
@@ -205,17 +209,17 @@ int elemental_delete(struct elemental_data *ed, int reply) {
 	elemental->summon_stop(ed);
 
 	if( !sd )
-		return unit_free(&ed->bl, 0);
+		return unit->free(&ed->bl, 0);
 
 	sd->ed = NULL;
 	sd->status.ele_id = 0;
 
-	return unit_remove_map(&ed->bl, 0);
+	return unit->remove_map(&ed->bl, 0, ALC_MARK);
 }
 
 void elemental_summon_init(struct elemental_data *ed) {
 	if( ed->summon_timer == INVALID_TIMER )
-		ed->summon_timer = iTimer->add_timer(iTimer->gettick() + ed->elemental.life_time, elemental_summon_end, ed->master->bl.id, 0);
+		ed->summon_timer = timer->add(timer->gettick() + ed->elemental.life_time, elemental->summon_end_timer, ed->master->bl.id, 0);
 
 	ed->regen.state.block = 0;
 }
@@ -224,9 +228,9 @@ int elemental_data_received(struct s_elemental *ele, bool flag) {
 	struct map_session_data *sd;
 	struct elemental_data *ed;
 	struct s_elemental_db *db;
-	int i = elemental_search_index(ele->class_);
+	int i = elemental->search_index(ele->class_);
 
-	if( (sd = iMap->charid2sd(ele->char_id)) == NULL )
+	if( (sd = map->charid2sd(ele->char_id)) == NULL )
 		return 0;
 
 	if( !flag || i < 0 ) { // Not created - loaded - DB info
@@ -234,32 +238,32 @@ int elemental_data_received(struct s_elemental *ele, bool flag) {
 		return 0;
 	}
 
-	db = &elemental->elemental_db[i];
+	db = &elemental->db[i];
 	if( !sd->ed ) {	// Initialize it after first summon.
 		sd->ed = ed = (struct elemental_data*)aCalloc(1,sizeof(struct elemental_data));
 		ed->bl.type = BL_ELEM;
-		ed->bl.id = npc_get_new_npc_id();
+		ed->bl.id = npc->get_new_npc_id();
 		ed->master = sd;
 		ed->db = db;
 		memcpy(&ed->elemental, ele, sizeof(struct s_elemental));
-		iStatus->set_viewdata(&ed->bl, ed->elemental.class_);
+		status->set_viewdata(&ed->bl, ed->elemental.class_);
 		ed->vd->head_mid = 10; // Why?
-		iStatus->change_init(&ed->bl);
-		unit_dataset(&ed->bl);
+		status->change_init(&ed->bl);
+		unit->dataset(&ed->bl);
 		ed->ud.dir = sd->ud.dir;
 
 		ed->bl.m = sd->bl.m;
 		ed->bl.x = sd->bl.x;
 		ed->bl.y = sd->bl.y;
-		unit_calc_pos(&ed->bl, sd->bl.x, sd->bl.y, sd->ud.dir);
+		unit->calc_pos(&ed->bl, sd->bl.x, sd->bl.y, sd->ud.dir);
 		ed->bl.x = ed->ud.to_x;
 		ed->bl.y = ed->ud.to_y;
 
-		iMap->addiddb(&ed->bl);
-		status_calc_elemental(ed,1);
-		ed->last_spdrain_time = ed->last_thinktime = iTimer->gettick();
+		map->addiddb(&ed->bl);
+		status_calc_elemental(ed,SCO_FIRST);
+		ed->last_spdrain_time = ed->last_thinktime = timer->gettick();
 		ed->summon_timer = INVALID_TIMER;
-		elemental_summon_init(ed);
+		elemental->summon_init(ed);
 	} else {
 		memcpy(&sd->ed->elemental, ele, sizeof(struct s_elemental));
 		ed = sd->ed;
@@ -268,7 +272,7 @@ int elemental_data_received(struct s_elemental *ele, bool flag) {
 	sd->status.ele_id = ele->elemental_id;
 
 	if( ed->bl.prev == NULL && sd->bl.prev != NULL ) {
-		iMap->addblock(&ed->bl);
+		map->addblock(&ed->bl);
 		clif->spawn(&ed->bl);
 		clif->elemental_info(sd);
 		clif->elemental_updatestatus(sd,SP_HP);
@@ -281,7 +285,7 @@ int elemental_data_received(struct s_elemental *ele, bool flag) {
 
 int elemental_clean_single_effect(struct elemental_data *ed, uint16 skill_id) {
 	struct block_list *bl;
-	sc_type type = iStatus->skill2sc(skill_id);
+	sc_type type = status->skill2sc(skill_id);
 
 	nullpo_ret(ed);
 
@@ -386,7 +390,7 @@ int elemental_clean_effect(struct elemental_data *ed) {
 	return 1;
 }
 
-int elemental_action(struct elemental_data *ed, struct block_list *bl, unsigned int tick) {
+int elemental_action(struct elemental_data *ed, struct block_list *bl, int64 tick) {
 	struct skill_condition req;
 	uint16 skill_id, skill_lv;
 	int i;
@@ -421,7 +425,7 @@ int elemental_action(struct elemental_data *ed, struct block_list *bl, unsigned 
 	// Not in skill range.
 	if( !battle->check_range(&ed->bl,bl,skill->get_range(skill_id,skill_lv)) ) {
 		// Try to walk to the target.
-		if( !unit_walktobl(&ed->bl, bl, skill->get_range(skill_id,skill_lv), 2) )
+		if( !unit->walktobl(&ed->bl, bl, skill->get_range(skill_id,skill_lv), 2) )
 			elemental->unlocktarget(ed);
 		else {
 			// Walking, waiting to be in range. Client don't handle it, then we must handle it here.
@@ -430,9 +434,9 @@ int elemental_action(struct elemental_data *ed, struct block_list *bl, unsigned 
 			ed->ud.skill_lv = skill_lv;
 
 			if( skill->get_inf(skill_id) & INF_GROUND_SKILL )
-				ed->ud.skilltimer = iTimer->add_timer( tick+iStatus->get_speed(&ed->bl)*walk_dist, skill->castend_pos, ed->bl.id, 0 );
+				ed->ud.skilltimer = timer->add( tick+status->get_speed(&ed->bl)*walk_dist, skill->castend_pos, ed->bl.id, 0 );
 			else
-				ed->ud.skilltimer = iTimer->add_timer( tick+iStatus->get_speed(&ed->bl)*walk_dist, skill->castend_id, ed->bl.id, 0 );
+				ed->ud.skilltimer = timer->add( tick+status->get_speed(&ed->bl)*walk_dist, skill->castend_id, ed->bl.id, 0 );
 		}
 		return 1;
 
@@ -453,9 +457,9 @@ int elemental_action(struct elemental_data *ed, struct block_list *bl, unsigned 
 
 	//Otherwise, just cast the skill.
 	if( skill->get_inf(skill_id) & INF_GROUND_SKILL )
-		unit_skilluse_pos(&ed->bl, bl->x, bl->y, skill_id, skill_lv);
+		unit->skilluse_pos(&ed->bl, bl->x, bl->y, skill_id, skill_lv);
 	else
-		unit_skilluse_id(&ed->bl, bl->id, skill_id, skill_lv);
+		unit->skilluse_id(&ed->bl, bl->id, skill_id, skill_lv);
 
 	// Reset target.
 	ed->target_id = 0;
@@ -490,18 +494,18 @@ int elemental_change_mode_ack(struct elemental_data *ed, int mode) {
 
 	if( ed->ud.skilltimer != INVALID_TIMER )
 		return 0;
-	else if( DIFF_TICK(iTimer->gettick(), ed->ud.canact_tick) < 0 )
+	else if( DIFF_TICK(timer->gettick(), ed->ud.canact_tick) < 0 )
 		return 0;
 
 	ed->target_id = bl->id;	// Set new target
-	ed->last_thinktime = iTimer->gettick();
+	ed->last_thinktime = timer->gettick();
 
 	if( skill->get_inf(skill_id) & INF_GROUND_SKILL )
-		unit_skilluse_pos(&ed->bl, bl->x, bl->y, skill_id, skill_lv);
+		unit->skilluse_pos(&ed->bl, bl->x, bl->y, skill_id, skill_lv);
 	else
-		unit_skilluse_id(&ed->bl,bl->id,skill_id,skill_lv);
+		unit->skilluse_id(&ed->bl,bl->id,skill_id,skill_lv);
 
-	ed->target_id = 0;	// Reset target after casting the skill  to avoid continious attack.
+	ed->target_id = 0;	// Reset target after casting the skill  to avoid continuous attack.
 
 	return 1;
 }
@@ -525,7 +529,7 @@ int elemental_change_mode(struct elemental_data *ed, int mode) {
 	else if( mode == EL_MODE_ASSIST ) mode = EL_SKILLMODE_ASSIST;		// Assist spirit mode -> Assist spirit skill.
 	else mode = EL_SKILLMODE_PASIVE;									// Passive spirit mode -> Passive spirit skill.
 
-	// Use a skill inmediately after every change mode.
+	// Use a skill immediately after every change mode.
 	if( mode != EL_SKILLMODE_AGGRESSIVE )
 		elemental->change_mode_ack(ed,mode);
 	return 1;
@@ -574,8 +578,8 @@ struct skill_condition elemental_skill_get_requirements(uint16 skill_id, uint16 
 	if( skill_lv < 1 || skill_lv > MAX_SKILL_LEVEL )
 		return req;
 
-	req.hp = skill_db[idx].hp[skill_lv-1];
-	req.sp = skill_db[idx].sp[skill_lv-1];
+	req.hp = skill->db[idx].hp[skill_lv-1];
+	req.sp = skill->db[idx].sp[skill_lv-1];
 
 	return req;
 }
@@ -589,7 +593,7 @@ int elemental_set_target( struct map_session_data *sd, struct block_list *bl ) {
 	if( ed->bl.m != bl->m || !check_distance_bl(&ed->bl, bl, ed->db->range2) )
 		return 0;
 
-	if( !iStatus->check_skilluse(&ed->bl, bl, 0, 0) )
+	if( !status->check_skilluse(&ed->bl, bl, 0, 0) )
 		return 0;
 
 	if( ed->target_id == 0 )
@@ -598,7 +602,7 @@ int elemental_set_target( struct map_session_data *sd, struct block_list *bl ) {
 	return 1;
 }
 
-static int elemental_ai_sub_timer_activesearch(struct block_list *bl, va_list ap) {
+int elemental_ai_sub_timer_activesearch(struct block_list *bl, va_list ap) {
 	struct elemental_data *ed;
 	struct block_list **target;
 	int dist;
@@ -609,7 +613,7 @@ static int elemental_ai_sub_timer_activesearch(struct block_list *bl, va_list ap
 	target = va_arg(ap,struct block_list**);
 
 	//If can't seek yet, not an enemy, or you can't attack it, skip.
-	if( (*target) == bl || !iStatus->check_skilluse(&ed->bl, bl, 0, 0) )
+	if( (*target) == bl || !status->check_skilluse(&ed->bl, bl, 0, 0) )
 		return 0;
 
 	if( battle->check_target(&ed->bl,bl,BCT_ENEMY) <= 0 )
@@ -634,7 +638,7 @@ static int elemental_ai_sub_timer_activesearch(struct block_list *bl, va_list ap
 	return 0;
 }
 
-static int elemental_ai_sub_timer(struct elemental_data *ed, struct map_session_data *sd, unsigned int tick) {
+int elemental_ai_sub_timer(struct elemental_data *ed, struct map_session_data *sd, int64 tick) {
 	struct block_list *target = NULL;
 	int master_dist, view_range, mode;
 
@@ -692,7 +696,7 @@ static int elemental_ai_sub_timer(struct elemental_data *ed, struct map_session_
 	master_dist = distance_bl(&sd->bl, &ed->bl);
 	if( master_dist > AREA_SIZE ) {	// Master out of vision range.
 		elemental->unlocktarget(ed);
-		unit_warp(&ed->bl,sd->bl.m,sd->bl.x,sd->bl.y,CLR_TELEPORT);
+		unit->warp(&ed->bl,sd->bl.m,sd->bl.x,sd->bl.y,CLR_TELEPORT);
 		clif->elemental_updatestatus(sd,SP_HP);
 		clif->elemental_updatestatus(sd,SP_SP);
 		return 0;
@@ -704,16 +708,16 @@ static int elemental_ai_sub_timer(struct elemental_data *ed, struct map_session_
 			return 0; //Already walking to him
 		if( DIFF_TICK(tick, ed->ud.canmove_tick) < 0 )
 			return 0; //Can't move yet.
-		if( iMap->search_freecell(&ed->bl, sd->bl.m, &x, &y, MIN_ELEDISTANCE, MIN_ELEDISTANCE, 1)
-		   && unit_walktoxy(&ed->bl, x, y, 0) )
+		if( map->search_freecell(&ed->bl, sd->bl.m, &x, &y, MIN_ELEDISTANCE, MIN_ELEDISTANCE, 1)
+		 && unit->walktoxy(&ed->bl, x, y, 0) )
 			return 0;
 	}
 
 	if( mode == EL_MODE_AGGRESSIVE ) {
-		target = iMap->id2bl(ed->ud.target);
+		target = map->id2bl(ed->ud.target);
 
 		if( !target )
-			iMap->foreachinrange(elemental_ai_sub_timer_activesearch, &ed->bl, view_range, BL_CHAR, ed, &target, status_get_mode(&ed->bl));
+			map->foreachinrange(elemental->ai_sub_timer_activesearch, &ed->bl, view_range, BL_CHAR, ed, &target, status_get_mode(&ed->bl));
 
 		if( !target ) { //No targets available.
 			elemental->unlocktarget(ed);
@@ -721,7 +725,7 @@ static int elemental_ai_sub_timer(struct elemental_data *ed, struct map_session_
 		}
 
 		if( battle->check_range(&ed->bl,target,view_range) && rnd()%100 < 2 ) { // 2% chance to cast attack skill.
-			if(	elemental->action(ed,target,tick) )
+			if( elemental->action(ed,target,tick) )
 				return 1;
 		}
 
@@ -731,28 +735,28 @@ static int elemental_ai_sub_timer(struct elemental_data *ed, struct map_session_
 			return 1;
 
 		if( battle->check_range(&ed->bl, target, ed->base_status.rhw.range) ) {//Target within range, engage
-			unit_attack(&ed->bl,target->id,1);
+			unit->attack(&ed->bl,target->id,1);
 			return 1;
 		}
 
 		//Follow up if possible.
-		if( !unit_walktobl(&ed->bl, target, ed->base_status.rhw.range, 2) )
+		if( !unit->walktobl(&ed->bl, target, ed->base_status.rhw.range, 2) )
 			elemental->unlocktarget(ed);
 	}
 
 	return 0;
 }
 
-static int elemental_ai_sub_foreachclient(struct map_session_data *sd, va_list ap) {
-	unsigned int tick = va_arg(ap,unsigned int);
+int elemental_ai_sub_foreachclient(struct map_session_data *sd, va_list ap) {
+	int64 tick = va_arg(ap,int64);
 	if(sd->status.ele_id && sd->ed)
-		elemental_ai_sub_timer(sd->ed,sd,tick);
+		elemental->ai_sub_timer(sd->ed,sd,tick);
 
 	return 0;
 }
 
-static int elemental_ai_timer(int tid, unsigned int tick, int id, intptr_t data) {
-	iMap->map_foreachpc(elemental_ai_sub_foreachclient,tick);
+int elemental_ai_timer(int tid, int64 tick, int id, intptr_t data) {
+	map->foreachpc(elemental->ai_sub_foreachclient,tick);
 	return 0;
 }
 
@@ -762,10 +766,12 @@ int read_elementaldb(void) {
 	char *str[26];
 	int i, j = 0, k = 0, ele;
 	struct s_elemental_db *db;
-	struct status_data *status;
+	struct status_data *estatus;
 
-	sprintf(line, "%s/%s", iMap->db_path, "elemental_db.txt");
-	memset(elemental->elemental_db,0,sizeof(elemental->elemental_db));
+	sprintf(line, "%s/%s", map->db_path, "elemental_db.txt");
+	
+	if( runflag == MAPSERVER_ST_RUNNING ) //only necessary after we're up
+		memset(elemental->db,0,sizeof(elemental->db));
 
 	fp = fopen(line, "r");
 	if( !fp ) {
@@ -792,50 +798,50 @@ int read_elementaldb(void) {
 			continue;
 		}
 
-		db = &elemental->elemental_db[j];
+		db = &elemental->db[j];
 		db->class_ = atoi(str[0]);
 		safestrncpy(db->sprite, str[1], NAME_LENGTH);
 		safestrncpy(db->name, str[2], NAME_LENGTH);
 		db->lv = atoi(str[3]);
 
-		status = &db->status;
+		estatus = &db->status;
 		db->vd.class_ = db->class_;
 
-		status->max_hp = atoi(str[4]);
-		status->max_sp = atoi(str[5]);
-		status->rhw.range = atoi(str[6]);
-		status->rhw.atk = atoi(str[7]);
-		status->rhw.atk2 = atoi(str[8]);
-		status->def = atoi(str[9]);
-		status->mdef = atoi(str[10]);
-		status->str = atoi(str[11]);
-		status->agi = atoi(str[12]);
-		status->vit = atoi(str[13]);
-		status->int_ = atoi(str[14]);
-		status->dex = atoi(str[15]);
-		status->luk = atoi(str[16]);
+		estatus->max_hp = atoi(str[4]);
+		estatus->max_sp = atoi(str[5]);
+		estatus->rhw.range = atoi(str[6]);
+		estatus->rhw.atk = atoi(str[7]);
+		estatus->rhw.atk2 = atoi(str[8]);
+		estatus->def = atoi(str[9]);
+		estatus->mdef = atoi(str[10]);
+		estatus->str = atoi(str[11]);
+		estatus->agi = atoi(str[12]);
+		estatus->vit = atoi(str[13]);
+		estatus->int_ = atoi(str[14]);
+		estatus->dex = atoi(str[15]);
+		estatus->luk = atoi(str[16]);
 		db->range2 = atoi(str[17]);
 		db->range3 = atoi(str[18]);
-		status->size = atoi(str[19]);
-		status->race = atoi(str[20]);
+		estatus->size = atoi(str[19]);
+		estatus->race = atoi(str[20]);
 
 		ele = atoi(str[21]);
-		status->def_ele = ele%10;
-		status->ele_lv = ele/20;
-		if( status->def_ele >= ELE_MAX ) {
-			ShowWarning("Elemental %d has invalid element type %d (max element is %d)\n", db->class_, status->def_ele, ELE_MAX - 1);
-			status->def_ele = ELE_NEUTRAL;
+		estatus->def_ele = ele%10;
+		estatus->ele_lv = ele/20;
+		if( estatus->def_ele >= ELE_MAX ) {
+			ShowWarning("Elemental %d has invalid element type %d (max element is %d)\n", db->class_, estatus->def_ele, ELE_MAX - 1);
+			estatus->def_ele = ELE_NEUTRAL;
 		}
-		if( status->ele_lv < 1 || status->ele_lv > 4 ) {
-			ShowWarning("Elemental %d has invalid element level %d (max is 4)\n", db->class_, status->ele_lv);
-			status->ele_lv = 1;
+		if( estatus->ele_lv < 1 || estatus->ele_lv > 4 ) {
+			ShowWarning("Elemental %d has invalid element level %d (max is 4)\n", db->class_, estatus->ele_lv);
+			estatus->ele_lv = 1;
 		}
 
-		status->aspd_rate = 1000;
-		status->speed = atoi(str[22]);
-		status->adelay = atoi(str[23]);
-		status->amotion = atoi(str[24]);
-		status->dmotion = atoi(str[25]);
+		estatus->aspd_rate = 1000;
+		estatus->speed = atoi(str[22]);
+		estatus->adelay = atoi(str[23]);
+		estatus->amotion = atoi(str[24]);
+		estatus->dmotion = atoi(str[25]);
 
 		j++;
 	}
@@ -855,7 +861,7 @@ int read_elemental_skilldb(void) {
 	uint16 skill_id, skill_lv;
 	int skillmode;
 
-	sprintf(line, "%s/%s", iMap->db_path, "elemental_skill_db.txt");
+	sprintf(line, "%s/%s", map->db_path, "elemental_skill_db.txt");
 	fp = fopen(line, "r");
 	if( !fp ) {
 		ShowError("read_elemental_skilldb : can't read elemental_skill_db.txt\n");
@@ -882,7 +888,7 @@ int read_elemental_skilldb(void) {
 		}
 
 		class_ = atoi(str[0]);
-		ARR_FIND(0, MAX_ELEMENTAL_CLASS, i, class_ == elemental->elemental_db[i].class_);
+		ARR_FIND(0, MAX_ELEMENTAL_CLASS, i, class_ == elemental->db[i].class_);
 		if( i == MAX_ELEMENTAL_CLASS ) {
 			ShowError("read_elemental_skilldb : Class not found in elemental_db for skill entry, line %d.\n", k);
 			continue;
@@ -894,7 +900,7 @@ int read_elemental_skilldb(void) {
 			continue;
 		}
 
-		db = &elemental->elemental_db[i];
+		db = &elemental->db[i];
 		skill_lv = atoi(str[2]);
 
 		skillmode = atoi(str[3]);
@@ -919,7 +925,7 @@ int read_elemental_skilldb(void) {
 }
 
 void reload_elementaldb(void) {
-	read_elementaldb();
+	elemental->read_db();
 	elemental->reload_skilldb();
 }
 
@@ -927,12 +933,15 @@ void reload_elemental_skilldb(void) {
 	elemental->read_skilldb();
 }
 
-int do_init_elemental(void) {
-	read_elementaldb();
+int do_init_elemental(bool minimal) {
+	if (minimal)
+		return 0;
+
+	elemental->read_db();
 	elemental->read_skilldb();
 
-	iTimer->add_timer_func_list(elemental_ai_timer,"elemental_ai_timer");
-	iTimer->add_timer_interval(iTimer->gettick()+MIN_ELETHINKTIME,elemental_ai_timer,0,0,MIN_ELETHINKTIME);
+	timer->add_func_list(elemental->ai_timer,"elemental_ai_timer");
+	timer->add_interval(timer->gettick()+MIN_ELETHINKTIME,elemental->ai_timer,0,0,MIN_ELETHINKTIME);
 
 	return 0;
 }
@@ -942,13 +951,21 @@ void do_final_elemental(void) {
 }
 
 /*=====================================
-* Default Functions : elemental.h 
+* Default Functions : elemental.h
 * Generated by HerculesInterfaceMaker
 * created by Susu
 *-------------------------------------*/
 void elemental_defaults(void) {
 	elemental = &elemental_s;
-	/* funcs */
+
+	/* */
+	elemental->init = do_init_elemental;
+	elemental->final = do_final_elemental;
+
+	/* */
+	memset(elemental->db,0,sizeof(elemental->db));
+	
+	/* funcs */
 	
 	elemental->class = elemental_class;
 	elemental->get_viewdata = elemental_get_viewdata;
@@ -977,8 +994,15 @@ void elemental_defaults(void) {
 	elemental->skill_get_requirements = elemental_skill_get_requirements;
 	
 	elemental->read_skilldb = read_elemental_skilldb;
-	elemental->reload_elementaldb = reload_elementaldb;
+	elemental->reload_db = reload_elementaldb;
 	elemental->reload_skilldb = reload_elemental_skilldb;
-	elemental->do_init_elemental = do_init_elemental;
-	elemental->do_final_elemental = do_final_elemental;
+	
+	elemental->search_index = elemental_search_index;
+	elemental->summon_init = elemental_summon_init;
+	elemental->summon_end_timer = elemental_summon_end_timer;
+	elemental->ai_sub_timer_activesearch = elemental_ai_sub_timer_activesearch;
+	elemental->ai_sub_timer = elemental_ai_sub_timer;
+	elemental->ai_sub_foreachclient = elemental_ai_sub_foreachclient;
+	elemental->ai_timer = elemental_ai_timer;
+	elemental->read_db = read_elementaldb;
 }

@@ -1,19 +1,23 @@
-// Copyright (c) Athena Dev Teams - Licensed under GNU GPL
-// For more information, see LICENCE in the main folder
+// Copyright (c) Hercules Dev Team, licensed under GNU GPL.
+// See the LICENSE file
+// Portions Copyright (c) Athena Dev Teams
 
+#define HERCULES_CORE
+
+#include "../config/core.h" // CELL_NOSTACK, CIRCULAR_AREA
+#include "path.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "map.h"
 #include "../common/cbasetypes.h"
 #include "../common/db.h"
 #include "../common/malloc.h"
 #include "../common/nullpo.h"
 #include "../common/random.h"
 #include "../common/showmsg.h"
-
-#include "path.h"
-#include "map.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #define SET_OPEN 0
 #define SET_CLOSED 1
@@ -22,6 +26,8 @@
 #define DIR_WEST 2
 #define DIR_SOUTH 4
 #define DIR_EAST 8
+
+struct path_interface path_s;
 
 /// @name Structures and defines for A* pathfinding
 /// @{
@@ -65,9 +71,9 @@ int path_blownpos(int16 m,int16 x0,int16 y0,int16 dx,int16 dy,int count)
 {
 	struct map_data *md;
 
-	if( !map[m].cell )
+	if( !map->list[m].cell )
 		return -1;
-	md = &map[m];
+	md = &map->list[m];
 
 	if( count>25 ){ //Cap to prevent too much processing...?
 		ShowWarning("path_blownpos: count too many %d !\n",count);
@@ -80,20 +86,8 @@ int path_blownpos(int16 m,int16 x0,int16 y0,int16 dx,int16 dy,int count)
 	}
 
 	while( count > 0 && (dx != 0 || dy != 0) ) {
-		if( !md->getcellp(md,x0+dx,y0+dy,CELL_CHKPASS) ) {// attempt partial movement
-			int fx = ( dx != 0 && md->getcellp(md,x0+dx,y0,CELL_CHKPASS) );
-			int fy = ( dy != 0 && md->getcellp(md,x0,y0+dy,CELL_CHKPASS) );
-			if( fx && fy )
-			{
-				if(rnd()&1)
-					dx=0;
-				else
-					dy=0;
-			}
-			if( !fx )
-				dx=0;
-			if( !fy )
-				dy=0;
+		if( !md->getcellp(md,x0+dx,y0+dy,CELL_CHKPASS) ) {
+			break;
 		}
 
 		x0 += dx;
@@ -118,9 +112,9 @@ bool path_search_long(struct shootpath_data *spd,int16 m,int16 x0,int16 y0,int16
 	if( spd == NULL )
 		spd = &s_spd; // use dummy output variable
 
-	if (!map[m].cell)
+	if (!map->list[m].cell)
 		return false;
-	md = &map[m];
+	md = &map->list[m];
 
 	dx = (x1 - x0);
 	if (dx < 0) {
@@ -181,8 +175,10 @@ bool path_search_long(struct shootpath_data *spd,int16 m,int16 x0,int16 y0,int16
 /// Ensures there is enough space in array to store new element.
 static void heap_push_node(struct node_heap *heap, struct path_node *node)
 {
+#ifndef __clang_analyzer__ // TODO: Figure out why clang's static analyzer doesn't like this
 	BHEAP_ENSURE(*heap, 1, 256);
 	BHEAP_PUSH(*heap, node, NODE_MINTOPCMP, swap_ptr);
+#endif // __clang_analyzer__
 }
 
 /// Updates path_node in the binary node_heap.
@@ -209,7 +205,7 @@ static int add_path(struct node_heap *heap, struct path_node *tp, int16 x, int16
 		if (g_cost < tp[i].g_cost) { // New path to this node is better than old one
 			// Update costs and parent
 			tp[i].g_cost = g_cost;
-			tp[i].parent = parent; 
+			tp[i].parent = parent;
 			tp[i].f_cost = g_cost + h_cost;
 			if (tp[i].flag == SET_CLOSED) {
 				heap_push_node(heap, &tp[i]); // Put it in open set again
@@ -252,9 +248,9 @@ bool path_search(struct walkpath_data *wpd, int16 m, int16 x0, int16 y0, int16 x
 	if (wpd == NULL)
 		wpd = &s_wpd; // use dummy output variable
 
-	if (!map[m].cell)
+	if (!map->list[m].cell)
 		return false;
-	md = &map[m];
+	md = &map->list[m];
 
 #ifdef CELL_NOSTACK
 	//Do not check starting cell as that would get you stuck.
@@ -303,7 +299,7 @@ bool path_search(struct walkpath_data *wpd, int16 m, int16 x0, int16 y0, int16 x
 			return true;
 		}
 
-		return false; // easy path unsuccessful 
+		return false; // easy path unsuccessful
 	}
 	else { // !(flag&1)
 		// A* (A-star) pathfinding
@@ -457,4 +453,13 @@ unsigned int distance(int dx, int dy)
 	if (dy < 0) dy = -dy;
 	return (dx<dy?dy:dx);
 #endif
+}
+void path_defaults(void) {
+	path = &path_s;
+	
+	path->blownpos = path_blownpos;
+	path->search_long = path_search_long;
+	path->search = path_search;
+	path->check_distance = check_distance;
+	path->distance = distance;
 }

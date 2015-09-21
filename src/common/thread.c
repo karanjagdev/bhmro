@@ -6,27 +6,30 @@
 // Copyright (c) rAthena Project (www.rathena.org) - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
-#ifdef WIN32
-#include "../common/winapi.h"
-#define getpagesize() 4096 // @TODO: implement this properly (GetSystemInfo .. dwPageSize..). (Atm as on all supported win platforms its 4k its static.)
-#define __thread __declspec( thread ) 
-#else
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <signal.h>
-#include <pthread.h>
-#include <sched.h>
-#endif
+#define HERCULES_CORE
 
-#include "cbasetypes.h"
-#include "malloc.h"
-#include "showmsg.h"
 #include "thread.h"
 
+#include "../common/cbasetypes.h"
+#include "../common/malloc.h"
+#include "../common/showmsg.h"
+
+#ifdef WIN32
+#	include "../common/winapi.h"
+#	define getpagesize() 4096 // @TODO: implement this properly (GetSystemInfo .. dwPageSize..). (Atm as on all supported win platforms its 4k its static.)
+#	define __thread __declspec( thread )
+#else
+#	include <pthread.h>
+#	include <sched.h>
+#	include <signal.h>
+#	include <stdlib.h>
+#	include <string.h>
+#	include <unistd.h>
+#endif
+
 // When Compiling using MSC (on win32..) we know we have support in any case!
-#ifdef _MSC_VER 
-#define HAS_TLS 
+#ifdef _MSC_VER
+#define HAS_TLS
 #endif
 
 
@@ -37,7 +40,7 @@ struct rAthread {
 	
 	RATHREAD_PRIO  prio;
 	rAthreadProc proc;
-	void *param; 
+	void *param;
 
 	#ifdef WIN32
 	HANDLE hThread;
@@ -65,7 +68,7 @@ void rathread_init(){
 		l_threads[i].myID = i;
 	}
 
-	// now lets init thread id 0, which represnts the main thread
+	// now lets init thread id 0, which represents the main thread
 #ifdef HAS_TLS
 	g_rathread_ID = 0;
 #endif
@@ -79,9 +82,9 @@ void rathread_init(){
 void rathread_final(){
 	register unsigned int i;
 	
-	// Unterminated Threads Left? 
-	// Should'nt happen ..
-	// Kill 'em all! 
+	// Unterminated Threads Left?
+	// Shouldn't happen ..
+	// Kill 'em all!
 	//
 	for(i = 1; i < RA_THREADS_MAX; i++){
 		if(l_threads[i].proc != NULL){
@@ -96,15 +99,11 @@ void rathread_final(){
 
 
 // gets called whenever a thread terminated ..
-static void rat_thread_terminated( rAthread handle ){
-
-	int id_backup = handle->myID;
-
-	// Simply set all members to 0 (except the id)
-	memset(handle, 0x00, sizeof(struct rAthread));
-	
-	handle->myID = id_backup; // done ;)
-
+static void rat_thread_terminated(rAthread handle) {
+	// Preserve handle->myID and handle->hThread, set everything else to its default value
+	handle->param = NULL;
+	handle->proc = NULL;
+	handle->prio = RAT_PRIO_NORMAL;
 }//end: rat_thread_terminated()
 
 #ifdef WIN32
@@ -117,14 +116,14 @@ static void *_raThreadMainRedirector( void *p ){
 	
 	// Update myID @ TLS to right id.
 #ifdef HAS_TLS
-	g_rathread_ID = ((rAthread)p)->myID; 
+	g_rathread_ID = ((rAthread)p)->myID;
 #endif
 
 #ifndef WIN32
 	// When using posix threads
-	// the threads inherits the Signal mask from the thread which's spawned 
+	// the threads inherits the Signal mask from the thread which spawned
 	// this thread
-	// so we've to block everything we dont care about.
+	// so we've to block everything we don't care about.
 	sigemptyset(&set);
 	sigaddset(&set, SIGINT);
 	sigaddset(&set, SIGTERM);
@@ -137,7 +136,7 @@ static void *_raThreadMainRedirector( void *p ){
 
 	ret = ((rAthread)p)->proc( ((rAthread)p)->param ) ;
 
-#ifdef WIN32	
+#ifdef WIN32
 	CloseHandle( ((rAthread)p)->hThread );
 #endif
 
@@ -155,7 +154,7 @@ static void *_raThreadMainRedirector( void *p ){
 
 ///
 /// API Level
-/// 
+///
 rAthread rathread_create( rAthreadProc entryPoint,  void *param ){
 	return rathread_createEx( entryPoint, param,  (1<<23) /*8MB*/,  RAT_PRIO_NORMAL );
 }//end: rathread_create()
@@ -176,7 +175,7 @@ rAthread rathread_createEx( rAthreadProc entryPoint,  void *param,  size_t szSta
 		szStack += tmp;
 
 
-	// Get a free Thread Slot. 
+	// Get a free Thread Slot.
 	for(i = 0; i < RA_THREADS_MAX; i++){
 		if(l_threads[i].proc == NULL){
 			handle = &l_threads[i];
@@ -223,11 +222,10 @@ void rathread_destroy ( rAthread handle ){
 #else
 	if( pthread_cancel( handle->hThread ) == 0){
 	
-		// We have to join it, otherwise pthread wont re-cycle its internal ressources assoc. with this thread.
-		// 
+		// We have to join it, otherwise pthread wont re-cycle its internal resources assoc. with this thread.
 		pthread_join( handle->hThread, NULL );
 		
-		// Tell our manager to release ressources ;)
+		// Tell our manager to release resources ;)
 		rat_thread_terminated(handle);
 	}
 #endif
@@ -237,10 +235,10 @@ rAthread rathread_self( ){
 #ifdef HAS_TLS
 	rAthread handle = &l_threads[g_rathread_ID];
 	
-	if(handle->proc != NULL) // entry point set, so its used!	
+	if(handle->proc != NULL) // entry point set, so its used!
 		return handle;
 #else
-	// .. so no tls means we have to search the thread by its api-handle .. 
+	// .. so no tls means we have to search the thread by its api-handle ..
 	int i;
 
 	#ifdef WIN32
@@ -258,16 +256,16 @@ rAthread rathread_self( ){
 	
 #endif
 		
-	return NULL;	
+	return NULL;
 }//end: rathread_self()
 
 
 int rathread_get_tid(){
 
-#ifdef HAS_TLS	
+#ifdef HAS_TLS
 	return g_rathread_ID;
 #else
-	// todo
+	// TODO
 	#ifdef WIN32
 		return (int)GetCurrentThreadId();
 	#else
@@ -287,7 +285,7 @@ bool rathread_wait( rAthread handle,  void* *out_exitCode ){
 	//
 #ifdef WIN32
 	WaitForSingleObject(handle->hThread, INFINITE);
-	return true; 
+	return true;
 #else
 	if(pthread_join(handle->hThread, out_exitCode) == 0)
 		return true;
@@ -298,8 +296,8 @@ bool rathread_wait( rAthread handle,  void* *out_exitCode ){
 
 
 void rathread_prio_set( rAthread handle, RATHREAD_PRIO prio ){
-	handle->prio = RAT_PRIO_NORMAL; 
-	//@TODO 
+	handle->prio = RAT_PRIO_NORMAL;
+	//@TODO
 }//end: rathread_prio_set()
 
 
@@ -309,9 +307,9 @@ RATHREAD_PRIO rathread_prio_get( rAthread handle){
 
 
 void rathread_yield(){
-#ifdef WIN32 
+#ifdef WIN32
 	SwitchToThread();
 #else
 	sched_yield();
-#endif	
+#endif
 }//end: rathread_yield()

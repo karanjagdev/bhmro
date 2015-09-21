@@ -275,14 +275,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\src\common\harmonycore.c"
-				>
-			</File>
-			<File
-				RelativePath="..\src\common\harmony.h"
-				>
-			</File>
-			<File
 				RelativePath="..\src\common\db.h"
 				>
 			</File>
@@ -323,14 +315,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\src\common\mempool.c"
-				>
-			</File>
-			<File
-				RelativePath="..\src\common\mempool.h"
-				>
-			</File>
-			<File
 				RelativePath="..\src\common\mmo.h"
 				>
 			</File>
@@ -348,14 +332,6 @@
 			</File>
 			<File
 				RelativePath="..\src\common\nullpo.h"
-				>
-			</File>
-			<File
-				RelativePath="..\src\common\raconf.c"
-				>
-			</File>
-			<File
-				RelativePath="..\src\common\raconf.h"
 				>
 			</File>
 			<File
@@ -396,6 +372,14 @@
 			</File>
 			<File
 				RelativePath="..\src\common\strlib.h"
+				>
+			</File>
+			<File
+				RelativePath="..\src\common\sysinfo.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\common\sysinfo.h"
 				>
 			</File>
 			<File

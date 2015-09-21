@@ -6,7 +6,7 @@ void harmony_final();
 
 void harmony_parse(int fd,struct map_session_data *sd);
 
-void harmony_logout(TBL_PC* sd);
+void harmony_logout(struct map_session_data* sd);
 
 #endif
 

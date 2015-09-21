@@ -139,9 +139,7 @@
     <ClInclude Include="..\3rdparty\libconfig\strbuf.h" />
     <ClInclude Include="..\3rdparty\libconfig\wincompat.h" />
     <ClInclude Include="..\src\common\conf.h" />
-    <ClInclude Include="..\src\common\mempool.h" />
     <ClInclude Include="..\src\common\mutex.h" />
-    <ClInclude Include="..\src\common\raconf.h" />
     <ClInclude Include="..\src\common\thread.h" />
     <ClInclude Include="..\src\common\winapi.h" />
     <ClInclude Include="..\src\login\account.h" />
@@ -152,7 +150,6 @@
     <ClInclude Include="..\src\common\core.h" />
     <ClInclude Include="..\src\common\console.h" />
     <ClInclude Include="..\src\common\db.h" />
-    <ClInclude Include="..\src\common\harmony.h" />
     <ClInclude Include="..\src\common\ers.h" />
     <ClInclude Include="..\src\common\HPM.h" />
     <ClInclude Include="..\src\common\HPMi.h" />
@@ -165,9 +162,11 @@
     <ClInclude Include="..\src\common\socket.h" />
     <ClInclude Include="..\src\common\sql.h" />
     <ClInclude Include="..\src\common\strlib.h" />
+    <ClInclude Include="..\src\common\sysinfo.h" />
     <ClInclude Include="..\src\common\timer.h" />
     <ClInclude Include="..\src\common\utils.h" />
     <ClInclude Include="..\3rdparty\mt19937ar\mt19937ar.h" />
+	<ClInclude Include="..\src\common\harmony.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\3rdparty\libconfig\grammar.c" />
@@ -176,9 +175,7 @@
     <ClCompile Include="..\3rdparty\libconfig\scanner.c" />
     <ClCompile Include="..\3rdparty\libconfig\strbuf.c" />
     <ClCompile Include="..\src\common\conf.c" />
-    <ClCompile Include="..\src\common\mempool.c" />
     <ClCompile Include="..\src\common\mutex.c" />
-    <ClCompile Include="..\src\common\raconf.c" />
     <ClCompile Include="..\src\common\thread.c" />
     <ClCompile Include="..\src\login\account_sql.c" />
     <ClCompile Include="..\src\login\ipban_sql.c" />
@@ -187,7 +184,6 @@
     <ClCompile Include="..\src\common\core.c" />
     <ClCompile Include="..\src\common\console.c" />
     <ClCompile Include="..\src\common\db.c" />
-    <ClCompile Include="..\src\common\harmonycore.c" />
     <ClCompile Include="..\src\common\ers.c" />
     <ClCompile Include="..\src\common\HPM.c" />
     <ClCompile Include="..\src\common\malloc.c" />
@@ -198,9 +194,11 @@
     <ClCompile Include="..\src\common\socket.c" />
     <ClCompile Include="..\src\common\sql.c" />
     <ClCompile Include="..\src\common\strlib.c" />
+    <ClCompile Include="..\src\common\sysinfo.c" />
     <ClCompile Include="..\src\common\timer.c" />
     <ClCompile Include="..\src\common\utils.c" />
     <ClCompile Include="..\3rdparty\mt19937ar\mt19937ar.c" />
+	<ClCompile Include="..\src\common\harmonycore.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

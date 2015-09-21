@@ -2,42 +2,17 @@
 // See the LICENSE file
 // Portions Copyright (c) Athena Dev Teams
 
+#define HERCULES_CORE
+
+#include "searchstore.h"  // struct s_search_store_info
+
+#include "battle.h"  // battle_config.*
+#include "clif.h"  // clif->open_search_store_info, clif->search_store_info_*
+#include "pc.h"  // struct map_session_data
 #include "../common/cbasetypes.h"
 #include "../common/malloc.h"  // aMalloc, aRealloc, aFree
 #include "../common/showmsg.h"  // ShowError, ShowWarning
 #include "../common/strlib.h"  // safestrncpy
-#include "battle.h"  // battle_config.*
-#include "clif.h"  // clif->open_search_store_info, clif->search_store_info_*
-#include "pc.h"  // struct map_session_data
-#include "searchstore.h"  // struct s_search_store_info
-
-
-/// failure constants for clif functions
-enum e_searchstore_failure {
-	SSI_FAILED_NOTHING_SEARCH_ITEM         = 0,  // "No matching stores were found."
-	SSI_FAILED_OVER_MAXCOUNT               = 1,  // "There are too many results. Please enter more detailed search term."
-	SSI_FAILED_SEARCH_CNT                  = 2,  // "You cannot search anymore."
-	SSI_FAILED_LIMIT_SEARCH_TIME           = 3,  // "You cannot search yet."
-	SSI_FAILED_SSILIST_CLICK_TO_OPEN_STORE = 4,  // "No sale (purchase) information available."
-};
-
-
-enum e_searchstore_searchtype {
-	SEARCHTYPE_VENDING      = 0,
-	SEARCHTYPE_BUYING_STORE = 1,
-};
-
-
-enum e_searchstore_effecttype {
-	EFFECTTYPE_NORMAL = 0,
-	EFFECTTYPE_CASH   = 1,
-	EFFECTTYPE_MAX
-};
-
-
-/// type for shop search function
-typedef bool (*searchstore_search_t)(struct map_session_data* sd, unsigned short nameid);
-typedef bool (*searchstore_searchall_t)(struct map_session_data* sd, const struct s_search_store_search* s);
 
 struct searchstore_interface searchstore_s;
 
@@ -274,7 +249,7 @@ void searchstore_click(struct map_session_data* sd, int account_id, int store_id
 		return;
 	}
 
-	if( ( pl_sd = iMap->id2sd(account_id) ) == NULL ) {// no longer online
+	if( ( pl_sd = map->id2sd(account_id) ) == NULL ) {// no longer online
 		clif->search_store_info_failed(sd, SSI_FAILED_SSILIST_CLICK_TO_OPEN_STORE);
 		return;
 	}

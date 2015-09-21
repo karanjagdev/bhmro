@@ -2,14 +2,18 @@
 // See the LICENSE file
 // Portions Copyright (c) Athena Dev Teams
 
-#include "../common/malloc.h"
-#include "../common/core.h"
-#include "../common/showmsg.h"
+#define HERCULES_CORE
+
+#include "malloc.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include "../common/core.h"
+#include "../common/showmsg.h"
+#include "../common/sysinfo.h"
 
 struct malloc_interface iMalloc_s;
 
@@ -17,30 +21,30 @@ struct malloc_interface iMalloc_s;
 
 #if defined(MEMWATCH)
 
-#	include <string.h> 
+#	include <string.h>
 #	include "memwatch.h"
-#	define MALLOC(n,file,line,func)	mwMalloc((n),(file),(line))
-#	define CALLOC(m,n,file,line,func)	mwCalloc((m),(n),(file),(line))
-#	define REALLOC(p,n,file,line,func)	mwRealloc((p),(n),(file),(line))
-#	define STRDUP(p,file,line,func)	mwStrdup((p),(file),(line))
-#	define FREE(p,file,line,func)		mwFree((p),(file),(line))
-#	define MEMORY_USAGE()	0
-#	define MEMORY_VERIFY(ptr)	mwIsSafeAddr(ptr, 1)
-#	define MEMORY_CHECK() CHECK()
+#	define MALLOC(n,file,line,func)    mwMalloc((n),(file),(line))
+#	define CALLOC(m,n,file,line,func)  mwCalloc((m),(n),(file),(line))
+#	define REALLOC(p,n,file,line,func) mwRealloc((p),(n),(file),(line))
+#	define STRDUP(p,file,line,func)    mwStrdup((p),(file),(line))
+#	define FREE(p,file,line,func)      mwFree((p),(file),(line))
+#	define MEMORY_USAGE()              (size_t)0
+#	define MEMORY_VERIFY(ptr)          mwIsSafeAddr((ptr), 1)
+#	define MEMORY_CHECK()              CHECK()
 
 #elif defined(DMALLOC)
 
 #	include <string.h>
 #	include <stdlib.h>
 #	include "dmalloc.h"
-#	define MALLOC(n,file,line,func)	dmalloc_malloc((file),(line),(n),DMALLOC_FUNC_MALLOC,0,0)
-#	define CALLOC(m,n,file,line,func)	dmalloc_malloc((file),(line),(m)*(n),DMALLOC_FUNC_CALLOC,0,0)
-#	define REALLOC(p,n,file,line,func)	dmalloc_realloc((file),(line),(p),(n),DMALLOC_FUNC_REALLOC,0)
-#	define STRDUP(p,file,line,func)	strdup(p)
-#	define FREE(p,file,line,func)		free(p)
-#	define MEMORY_USAGE()	dmalloc_memory_allocated()
-#	define MEMORY_VERIFY(ptr)	(dmalloc_verify(ptr) == DMALLOC_VERIFY_NOERROR)
-#	define MEMORY_CHECK()	dmalloc_log_stats(); dmalloc_log_unfreed()
+#	define MALLOC(n,file,line,func)    dmalloc_malloc((file),(line),(n),DMALLOC_FUNC_MALLOC,0,0)
+#	define CALLOC(m,n,file,line,func)  dmalloc_malloc((file),(line),(m)*(n),DMALLOC_FUNC_CALLOC,0,0)
+#	define REALLOC(p,n,file,line,func) dmalloc_realloc((file),(line),(p),(n),DMALLOC_FUNC_REALLOC,0)
+#	define STRDUP(p,file,line,func)    strdup(p)
+#	define FREE(p,file,line,func)      free(p)
+#	define MEMORY_USAGE()              dmalloc_memory_allocated()
+#	define MEMORY_VERIFY(ptr)          (dmalloc_verify(ptr) == DMALLOC_VERIFY_NOERROR)
+#	define MEMORY_CHECK()              do { dmalloc_log_stats(); dmalloc_log_unfreed() } while(0)
 
 #elif defined(GCOLLECT)
 
@@ -50,24 +54,26 @@ struct malloc_interface iMalloc_s;
 #	else
 #		define RETURN_ADDR
 #	endif
-#	define MALLOC(n,file,line,func)	GC_debug_malloc((n), RETURN_ADDR (file),(line))
-#	define CALLOC(m,n,file,line,func)	GC_debug_malloc((m)*(n), RETURN_ADDR (file),(line))
-#	define REALLOC(p,n,file,line,func)	GC_debug_realloc((p),(n), RETURN_ADDR (file),(line))
-#	define STRDUP(p,file,line,func)	GC_debug_strdup((p), RETURN_ADDR (file),(line))
-#	define FREE(p,file,line,func)		GC_debug_free(p)
-#	define MEMORY_USAGE()	GC_get_heap_size()
-#	define MEMORY_VERIFY(ptr)	(GC_base(ptr) != NULL)
-#	define MEMORY_CHECK()	GC_gcollect()
+#	define MALLOC(n,file,line,func)    GC_debug_malloc((n), RETURN_ADDR (file),(line))
+#	define CALLOC(m,n,file,line,func)  GC_debug_malloc((m)*(n), RETURN_ADDR (file),(line))
+#	define REALLOC(p,n,file,line,func) GC_debug_realloc((p),(n), RETURN_ADDR (file),(line))
+#	define STRDUP(p,file,line,func)    GC_debug_strdup((p), RETURN_ADDR (file),(line))
+#	define FREE(p,file,line,func)      GC_debug_free(p)
+#	define MEMORY_USAGE()              GC_get_heap_size()
+#	define MEMORY_VERIFY(ptr)          (GC_base(ptr) != NULL)
+#	define MEMORY_CHECK()              GC_gcollect()
+
+#	undef RETURN_ADDR
 
 #else
 
-#	define MALLOC(n,file,line,func)	malloc(n)
-#	define CALLOC(m,n,file,line,func)	calloc((m),(n))
-#	define REALLOC(p,n,file,line,func)	realloc((p),(n))
-#	define STRDUP(p,file,line,func)	strdup(p)
-#	define FREE(p,file,line,func)		free(p)
-#	define MEMORY_USAGE()	0
-#	define MEMORY_VERIFY(ptr)	true
+#	define MALLOC(n,file,line,func)    malloc(n)
+#	define CALLOC(m,n,file,line,func)  calloc((m),(n))
+#	define REALLOC(p,n,file,line,func) realloc((p),(n))
+#	define STRDUP(p,file,line,func)    strdup(p)
+#	define FREE(p,file,line,func)      free(p)
+#	define MEMORY_USAGE()              (size_t)0
+#	define MEMORY_VERIFY(ptr)          true
 #	define MEMORY_CHECK()
 
 #endif
@@ -367,6 +373,37 @@ void* _mrealloc(void *memblock, size_t size, const char *file, int line, const c
 	}
 }
 
+/* a _mrealloc clone with the difference it 'z'eroes the newly created memory */
+void* _mreallocz(void *memblock, size_t size, const char *file, int line, const char *func ) {
+	size_t old_size;
+	void *p = NULL;
+	
+	if(memblock == NULL) {
+		p = iMalloc->malloc(size,file,line,func);
+		memset(p,0,size);
+		return p;
+	}
+	
+	old_size = ((struct unit_head *)((char *)memblock - sizeof(struct unit_head) + sizeof(long)))->size;
+	if( old_size == 0 ) {
+		old_size = ((struct unit_head_large *)((char *)memblock - sizeof(struct unit_head_large) + sizeof(long)))->size;
+	}
+	if(old_size > size) {
+		// Size reduction - return> as it is (negligence)
+		return memblock;
+	}  else {
+		// Size Large
+		p = iMalloc->malloc(size,file,line,func);
+		if(p != NULL) {
+			memcpy(p,memblock,old_size);
+			memset((char*)p+old_size,0,size-old_size);
+		}
+		iMalloc->free(memblock,file,line,func);
+		return p;
+	}
+}
+
+
 char* _mstrdup(const char *p, const char *file, int line, const char *func )
 {
 	if(p == NULL) {
@@ -384,7 +421,7 @@ void _mfree(void *ptr, const char *file, int line, const char *func )
 	struct unit_head *head;
 
 	if (ptr == NULL)
-		return; 
+		return;
 
 	head = (struct unit_head *)((char *)ptr - sizeof(struct unit_head) + sizeof(long));
 	if(head->size == 0) {
@@ -541,17 +578,14 @@ static void memmgr_log (char *buf)
 	if( !log_fp ) {
 		time_t raw;
 		struct tm* t;
-		const char* svn = get_svn_revision();
-		const char* git = get_git_hash();
 
 		log_fp = fopen(memmer_logfile,"at");
 		if (!log_fp) log_fp = stdout;
 
 		time(&raw);
 		t = localtime(&raw);
-		fprintf(log_fp, "\nMemory manager: Memory leaks found at %d/%02d/%02d %02dh%02dm%02ds (rev %s).\n",
-			(t->tm_year+1900), (t->tm_mon+1), t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec,
-			git[0] != HERC_UNKNOWN_VER ? git : svn[0] != HERC_UNKNOWN_VER ? svn : "Unknown");
+		fprintf(log_fp, "\nMemory manager: Memory leaks found at %d/%02d/%02d %02dh%02dm%02ds (%s rev '%s').\n",
+			(t->tm_year+1900), (t->tm_mon+1), t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, sysinfo->vcstype(), sysinfo->vcsrevision_src());
 	}
 	fprintf(log_fp, "%s", buf);
 	return;
@@ -667,7 +701,7 @@ void memmgr_report (int extra) {
 	struct {
 		const char *file;
 		unsigned short line;
-		unsigned int size;
+		size_t size;
 		unsigned int count;
 	} data[100];
 	memset(&data, 0, sizeof(data));
@@ -742,7 +776,7 @@ static void memmgr_init (void)
 {
 #ifdef LOG_MEMMGR
 	sprintf(memmer_logfile, "log/%s.leaks", SERVER_NAME);
-	ShowStatus("Memory manager initialised: "CL_WHITE"%s"CL_RESET"\n", memmer_logfile);
+	ShowStatus("Memory manager initialized: "CL_WHITE"%s"CL_RESET"\n", memmer_logfile);
 	memset(hash_unfill, 0, sizeof(hash_unfill));
 #endif /* LOG_MEMMGR */
 }
@@ -750,7 +784,7 @@ static void memmgr_init (void)
 
 
 /*======================================
-* Initialise
+* Initialize
 *--------------------------------------
 */
 
@@ -820,12 +854,14 @@ void malloc_defaults(void) {
 	iMalloc->malloc  =	 _mmalloc;
 	iMalloc->calloc  =	 _mcalloc;
 	iMalloc->realloc =	 _mrealloc;
+	iMalloc->reallocz=	 _mreallocz;
 	iMalloc->astrdup =	 _mstrdup;
 	iMalloc->free    =	 _mfree;
 #else
 	iMalloc->malloc  =	aMalloc_;
 	iMalloc->calloc  =	aCalloc_;
 	iMalloc->realloc =	aRealloc_;
+	iMalloc->reallocz=	aRealloc_;/* not using memory manager huhum o.o perhaps we could still do something about */
 	iMalloc->astrdup =	aStrdup_;
 	iMalloc->free    =	aFree_;
 #endif

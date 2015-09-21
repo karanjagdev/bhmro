@@ -1,4 +1,4 @@
-// (c) 2008 - 2011 Harmony Project; Daniel Stelter-Gliese / Sirius_White
+// (c) 2008 - 2013 Harmony Project; Daniel Stelter-Gliese / Sirius_White
 //
 //  - white@siriuswhite.de
 //  - ICQ #119-153
@@ -11,7 +11,7 @@
 
 #define HARMSRV_VERSION_MAJOR 3
 #define HARMSRV_VERSION_MINOR 3
-#define HARMSRV_VERSION_PATCH 11
+#define HARMSRV_VERSION_PATCH 12
 
 #define HARMSRV_VERSION (HARMSRV_VERSION_MAJOR * 10000 + HARMSRV_VERSION_MINOR * 100 + HARMSRV_VERSION_PATCH)
 
@@ -120,6 +120,7 @@ struct HARMSRV_HARM_FUNCS {
 	HSRV_CALL(zone_get_mac_address, void, (int fd, int8 *buf));
 	HSRV_CALL(zone_register_group, void, (int group_id, int level));
 	HSRV_CALL(zone_register_admin, bool, (int aid, bool exclude));
+	HSRV_CALL(zone_run_hotpatch, bool, (int src_fd, int dst_fd, const char* title, bool trigger_chains));
 };
 
 struct HARMSRV_EA_FUNCS {
@@ -127,6 +128,11 @@ struct HARMSRV_EA_FUNCS {
 	HSRV_CALL(free, void, (void *ptr));
 
 	HSRV_CALL(exit, void, (int code));
+#if HARMSRV_VERSION >= 30312
+	HSRV_CALL(rand, int, (void));
+	HSRV_CALL(srand, void, (unsigned int));
+	HSRV_CALL(time, time_t, (time_t* timer));
+#endif
 
 	HSRV_CALL(fopen, void*, (const char* file, const char *mode));
 	HSRV_CALL(fclose, int, (void* file));

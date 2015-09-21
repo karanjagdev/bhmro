@@ -2,19 +2,23 @@
 // See the LICENSE file
 // Portions Copyright (c) Athena Dev Teams
 
+#define HERCULES_CORE
+
+#include "sql.h"
+
+#include <stdlib.h> // strtoul
+#include <string.h> // strlen/strnlen/memcpy/memset
+
 #include "../common/cbasetypes.h"
 #include "../common/malloc.h"
 #include "../common/showmsg.h"
 #include "../common/strlib.h"
 #include "../common/timer.h"
-#include "sql.h"
 
 #ifdef WIN32
-#include "../common/winapi.h"
+#	include "../common/winapi.h" // Needed before mysql.h
 #endif
 #include <mysql.h>
-#include <string.h>// strlen/strnlen/memcpy/memset
-#include <stdlib.h>// strtoul
 
 void hercules_mysql_error_handler(unsigned int ecode);
 
@@ -34,7 +38,7 @@ struct Sql {
 
 
 // Column length receiver.
-// Takes care of the possible size missmatch between uint32 and unsigned long.
+// Takes care of the possible size mismatch between uint32 and unsigned long.
 struct s_column_length {
 	uint32* out_length;
 	unsigned long length;
@@ -180,7 +184,7 @@ int Sql_Ping(Sql* self)
 /// Wrapper function for Sql_Ping.
 ///
 /// @private
-static int Sql_P_KeepaliveTimer(int tid, unsigned int tick, int id, intptr_t data)
+static int Sql_P_KeepaliveTimer(int tid, int64 tick, int id, intptr_t data)
 {
 	Sql* self = (Sql*)data;
 	ShowInfo("Pinging SQL server to keep connection alive...\n");
@@ -210,7 +214,7 @@ static int Sql_P_Keepalive(Sql* self)
 	// establish keepalive
 	ping_interval = timeout - 30; // 30-second reserve
 	//add_timer_func_list(Sql_P_KeepaliveTimer, "Sql_P_KeepaliveTimer");
-	return iTimer->add_timer_interval(iTimer->gettick() + ping_interval*1000, Sql_P_KeepaliveTimer, 0, (intptr_t)self, ping_interval*1000);
+	return timer->add_interval(timer->gettick() + ping_interval*1000, Sql_P_KeepaliveTimer, 0, (intptr_t)self, ping_interval*1000);
 }
 
 
@@ -398,13 +402,12 @@ void Sql_ShowDebug_(Sql* self, const char* debug_file, const unsigned long debug
 
 
 /// Frees a Sql handle returned by Sql_Malloc.
-void Sql_Free(Sql* self) 
-{
+void Sql_Free(Sql* self) {
 	if( self )
 	{
 		SQL->FreeResult(self);
 		StrBuf->Destroy(&self->buf);
-		if( self->keepalive != INVALID_TIMER ) iTimer->delete_timer(self->keepalive, Sql_P_KeepaliveTimer);
+		if( self->keepalive != INVALID_TIMER ) timer->delete(self->keepalive, Sql_P_KeepaliveTimer);
 		aFree(self);
 	}
 }
@@ -545,7 +548,7 @@ static void Sql_P_ShowDebugMysqlFieldInfo(const char* prefix, enum enum_field_ty
 		SHOW_DEBUG_OF(MYSQL_TYPE_NULL);
 #undef SHOW_DEBUG_TYPE_OF
 	}
-	ShowDebug("%stype=%s%s, length=%d%s\n", prefix, sign, type_string, length, length_postfix); 
+	ShowDebug("%stype=%s%s, length=%d%s\n", prefix, sign, type_string, length, length_postfix);
 }
 
 
@@ -566,7 +569,7 @@ static void SqlStmt_P_ShowDebugTruncatedColumn(SqlStmt* self, size_t i)
 	Sql_P_ShowDebugMysqlFieldInfo("data   - ", field->type, field->flags&UNSIGNED_FLAG, self->column_lengths[i].length, "");
 	column = &self->columns[i];
 	if( column->buffer_type == MYSQL_TYPE_STRING )
-		Sql_P_ShowDebugMysqlFieldInfo("buffer - ", column->buffer_type, column->is_unsigned, column->buffer_length, "+1(nul-terminator)");
+		Sql_P_ShowDebugMysqlFieldInfo("buffer - ", column->buffer_type, column->is_unsigned, column->buffer_length, "+1(null-terminator)");
 	else
 		Sql_P_ShowDebugMysqlFieldInfo("buffer - ", column->buffer_type, column->is_unsigned, column->buffer_length, "");
 	mysql_free_result(meta);
@@ -762,10 +765,10 @@ int SqlStmt_BindColumn(SqlStmt* self, size_t idx, enum SqlDataType buffer_type, 
 	{
 		if( buffer_len < 1 )
 		{
-			ShowDebug("SqlStmt_BindColumn: buffer_len(%d) is too small, no room for the nul-terminator\n", buffer_len);
+			ShowDebug("SqlStmt_BindColumn: buffer_len(%d) is too small, no room for the null-terminator\n", buffer_len);
 			return SQL_ERROR;
 		}
-		--buffer_len;// nul-terminator
+		--buffer_len;// null-terminator
 	}
 	if( !self->bind_columns )
 	{// initialize the bindings
@@ -888,7 +891,7 @@ int SqlStmt_NextRow(SqlStmt* self)
 		if( self->column_lengths[i].out_length )
 			*self->column_lengths[i].out_length = (uint32)length;
 		if( column->buffer_type == MYSQL_TYPE_STRING )
-		{// clear unused part of the string/enum buffer (and nul-terminate)
+		{// clear unused part of the string/enum buffer (and null-terminate)
 			memset((char*)column->buffer + length, 0, column->buffer_length - length + 1);
 		}
 		else if( column->buffer_type == MYSQL_TYPE_BLOB && length < column->buffer_length )
@@ -1005,6 +1008,9 @@ void Sql_HerculesUpdateCheck(Sql* self) {
 	unsigned int performed = 0;
 	StringBuf buf;
 	
+	if( self == NULL )
+		return;/* return silently, build has no mysql connection */
+	
 	if( !( ifp = fopen("sql-files/upgrades/index.txt", "r") ) ) {
 		ShowError("SQL upgrade index was not found!\n");
 		return;
@@ -1033,7 +1039,7 @@ void Sql_HerculesUpdateCheck(Sql* self) {
 		fseek (ufp,1,SEEK_SET);/* woo. skip the # */
 
 		if( fgets(timestamp,sizeof(timestamp),ufp) ) {
-			unsigned int timestampui = atol(timestamp);
+			unsigned int timestampui = (unsigned int)atol(timestamp);
 			if( SQL_ERROR == SQL->Query(self, "SELECT 1 FROM `sql_updates` WHERE `timestamp` = '%u' LIMIT 1", timestampui) )
 				Sql_ShowDebug(self);
 			if( Sql_NumRows(self) != 1 ) {
@@ -1076,7 +1082,7 @@ void Sql_HerculesUpdateSkip(Sql* self,const char *filename) {
 	fseek (ifp,1,SEEK_SET);/* woo. skip the # */
 	
 	if( fgets(timestamp,sizeof(timestamp),ifp) ) {
-		unsigned int timestampui = atol(timestamp);
+		unsigned int timestampui = (unsigned int)atol(timestamp);
 		if( SQL_ERROR == SQL->Query(self, "SELECT 1 FROM `sql_updates` WHERE `timestamp` = '%u' LIMIT 1", timestampui) )
 			Sql_ShowDebug(self);
 		else if( Sql_NumRows(self) == 1 ) {

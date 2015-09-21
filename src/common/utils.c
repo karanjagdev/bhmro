@@ -2,32 +2,34 @@
 // See the LICENSE file
 // Portions Copyright (c) Athena Dev Teams
 
-#include "../common/cbasetypes.h"
-#include "../common/mmo.h"
-#include "../common/malloc.h"
-#include "../common/showmsg.h"
-#include "../common/core.h"
-#include "socket.h"
+#define HERCULES_CORE
+
 #include "utils.h"
 
-#include <stdio.h>
+#include <math.h> // floor()
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h> // floor()
+#include <sys/stat.h> // cache purposes [Ind/Hercules]
+
+#include "../common/cbasetypes.h"
+#include "../common/core.h"
+#include "../common/malloc.h"
+#include "../common/mmo.h"
+#include "../common/showmsg.h"
+#include "../common/socket.h"
 
 #ifdef WIN32
-	#include "../common/winapi.h"
-	#ifndef F_OK
-		#define F_OK   0x0
-	#endif  /* F_OK */
+#	include "../common/winapi.h"
+#	ifndef F_OK
+#		define F_OK   0x0
+#	endif  /* F_OK */
 #else
-	#include <unistd.h>
-	#include <dirent.h>
-	#include <sys/stat.h>
+#	include <dirent.h>
+#	include <sys/stat.h>
+#	include <unistd.h>
 #endif
-
-#include <sys/stat.h> // cache purposes [Ind/Hercules]
 
 struct HCache_interface HCache_s;
 
@@ -198,7 +200,7 @@ void findfile(const char *p, const char *pat, void (func)(const char*))
 
 		sprintf(tmppath,"%s%c%s",path, PATHSEP, entry->d_name);
 
-		// check if the pattern matchs.
+		// check if the pattern matches.
 		if (entry->d_name && strstr(entry->d_name, pattern)) {
 			func( tmppath );
 		}
@@ -209,7 +211,7 @@ void findfile(const char *p, const char *pat, void (func)(const char*))
 		}
 		// is this a directory?
 		if (S_ISDIR(dir_stat.st_mode)) {
-			// decent recursivly
+			// decent recursively
 			findfile(tmppath, pat, func);
 		}
 	}//end while
@@ -264,6 +266,58 @@ uint32 MakeDWord(uint16 word0, uint16 word1)
 		( (uint32)(word1 << 0x10) );
 }
 
+/*************************************
+* Big-endian compatibility functions *
+*************************************/
+
+// Converts an int16 from current machine order to little-endian
+int16 MakeShortLE(int16 val)
+{
+	unsigned char buf[2];
+	buf[0] = (unsigned char)( (val & 0x00FF)         );
+	buf[1] = (unsigned char)( (val & 0xFF00) >> 0x08 );
+	return *((int16*)buf);
+}
+
+// Converts an int32 from current machine order to little-endian
+int32 MakeLongLE(int32 val)
+{
+	unsigned char buf[4];
+	buf[0] = (unsigned char)( (val & 0x000000FF)         );
+	buf[1] = (unsigned char)( (val & 0x0000FF00) >> 0x08 );
+	buf[2] = (unsigned char)( (val & 0x00FF0000) >> 0x10 );
+	buf[3] = (unsigned char)( (val & 0xFF000000) >> 0x18 );
+	return *((int32*)buf);
+}
+
+// Reads an uint16 in little-endian from the buffer
+uint16 GetUShort(const unsigned char* buf)
+{
+	return	 ( ((uint16)(buf[0]))         )
+			|( ((uint16)(buf[1])) << 0x08 );
+}
+
+// Reads an uint32 in little-endian from the buffer
+uint32 GetULong(const unsigned char* buf)
+{
+	return	 ( ((uint32)(buf[0]))         )
+			|( ((uint32)(buf[1])) << 0x08 )
+			|( ((uint32)(buf[2])) << 0x10 )
+			|( ((uint32)(buf[3])) << 0x18 );
+}
+
+// Reads an int32 in little-endian from the buffer
+int32 GetLong(const unsigned char* buf)
+{
+	return (int32)GetULong(buf);
+}
+
+// Reads a float (32 bits) from the buffer
+float GetFloat(const unsigned char* buf)
+{
+	uint32 val = GetULong(buf);
+	return *((float*)(void*)&val);
+}
 
 /// calculates the value of A / B, in percent (rounded down)
 unsigned int get_percentage(const unsigned int A, const unsigned int B)
@@ -272,7 +326,7 @@ unsigned int get_percentage(const unsigned int A, const unsigned int B)
 
 	if( B == 0 )
 	{
-		ShowError("get_percentage(): divison by zero! (A=%u,B=%u)\n", A, B);
+		ShowError("get_percentage(): division by zero! (A=%u,B=%u)\n", A, B);
 		return ~0U;
 	}
 
@@ -286,6 +340,17 @@ unsigned int get_percentage(const unsigned int A, const unsigned int B)
 
 	return (unsigned int)floor(result);
 }
+
+//-----------------------------------------------------
+// custom timestamp formatting (from eApp)
+//-----------------------------------------------------
+const char* timestamp2string(char* str, size_t size, time_t timestamp, const char* format)
+{
+	size_t len = strftime(str, size, format, localtime(&timestamp));
+	memset(str + len, '\0', size - len);
+	return str;
+}
+
 
 /* [Ind/Hercules] Caching */
 bool HCache_check(const char *file) {
@@ -309,7 +374,7 @@ bool HCache_check(const char *file) {
 		return false;
 	}
 
-	if( fread(dT,sizeof(dT),1,second) != 1 || fread(&rtime,sizeof(rtime),1,second) != 1 || dT[0] != 'k' || HCache->recompile_time > rtime ) {
+	if( fread(dT,sizeof(dT),1,second) != 1 || fread(&rtime,sizeof(rtime),1,second) != 1 || dT[0] != HCACHE_KEY || HCache->recompile_time > rtime ) {
 		fclose(first);
 		fclose(second);
 		return false;
@@ -343,7 +408,8 @@ FILE *HCache_open(const char *file, const char *opt) {
 	}
 	
 	if( opt[0] != 'r' ) {
-		char dT[1] = "k";/* 1-byte key to ensure our method is the latest, we can modify to ensure the method matches */
+		char dT[1];/* 1-byte key to ensure our method is the latest, we can modify to ensure the method matches */
+		dT[0] = HCACHE_KEY;
 		hwrite(dT,sizeof(dT),1,first);
 		hwrite(&HCache->recompile_time,sizeof(HCache->recompile_time),1,first);
 	}

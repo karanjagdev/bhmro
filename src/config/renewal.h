@@ -13,7 +13,18 @@
  * @INFO: This file holds general-purpose renewal settings, for class-specific ones check /src/config/classes folder
  **/
 
-#ifndef DISABLE_RENEWAL
+/**
+ * Renewal full toggle switch.
+ *
+ * Uncomment this line to disable all of the below settings at once.
+ * Note: in UNIX builds, this can be easily done without touching this
+ * line, by passing --disable-renewal to the configure script:
+ * ./configure --disable-renewal
+ */
+//#define DISABLE_RENEWAL
+
+
+#ifndef DISABLE_RENEWAL // Do not change this line
 
 /// game renewal server mode
 /// (disable by commenting the line)
@@ -59,6 +70,7 @@
 ///  - damage is NOT increased by 400%
 ///  - it does NOT affect grimtooth
 ///  - weapon and status ATK are increased
+///  - some skill's damage ratio has modified
 #define RENEWAL_EDP
 
 /// renewal ASPD [malufett]
@@ -72,5 +84,6 @@
 #define RENEWAL_ASPD
 
 #endif // DISABLE_RENEWAL
+#undef DISABLE_RENEWAL
 
 #endif // _CONFIG_RENEWAL_H_

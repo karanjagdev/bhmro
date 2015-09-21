@@ -737,7 +737,7 @@
 2049,0,0,0,0,0,0,10,0,no,0,0,0,none,0,		AB_EUCHARISTICA,Eucharistica
 2050,11,6,16,6,0x1,0,1,1,yes,0,0,0,magic,0,	AB_RENOVATIO,Renovatio
 2051,11,6,16,6,0x21,0,5,1,yes,0,0,0,magic,0,	AB_HIGHNESSHEAL,Highness Heal //CHECK Info shows this has magic attack.
-2052,11,6,1,0,0x1,0,5,1,yes,0,0xA00,0,magic,0,	AB_CLEARANCE,Clearance //CHECK Also shows this as a magic attack. Why?
+2052,11,6,1,0,0x1,0,5,1,yes,0,0,0,magic,0,	AB_CLEARANCE,Clearance //CHECK Also shows this as a magic attack. Why?
 2053,0,6,16,0,0x1,0,5,1,yes,0,0,0,magic,0,	AB_EXPIATIO,Expiatio //CHECK Does this also give the buff to party members?
 2054,0,6,4,6,0x1,0,10,1,yes,0,0,0,none,0,	AB_DUPLELIGHT,Duple Light //CHECK Had issues adding a skill level check to make the % go higher with the skills level. Will do later.
 2055,-1,6,1,-1,0,0,10,1,no,0,0,0,weapon,0,	AB_DUPLELIGHT_MELEE,Duple Light Melee
@@ -874,7 +874,7 @@
 2314,1,6,1,-1,0,0,1,1,no,0,0,0,weapon,0,	LG_RAGEBURST,Rage Burst
 2315,0,6,4,0,0x2,3,3,1,yes,0,0,0,none,2,	LG_SHIELDSPELL,Shield Spell
 2316,0,6,4,0,0x1,0,5,1,yes,0,0,0,none,0,	LG_EXEEDBREAK,Exceed Break
-2317,1,6,2,-1,0x2,5,5,1,yes,0,0,0,none,3:4:5:6:7,	LG_OVERBRAND,Over Brand //CHECK I know the splash is needed somehow for the strange AoE it gives.
+2317,2,6,2,-1,0x2,0,5,1,yes,0,0,0,weapon,0, LG_OVERBRAND,Over Brand
 2318,0,6,4,0,0x1,0,5,1,yes,0,0,0,none,0,	LG_PRESTIGE,Prestige
 2319,0,6,4,0,0x1,3,5,1,no,0,0,0,weapon,0,	LG_BANDING,Banding //CHECK Splash isnt needed right? Banding has its own UNIT ID.
 2320,0,6,4,-1,0x2,3,5,1,yes,0,0,0,weapon,0,	LG_MOONSLASHER,Moon Slasher
@@ -883,6 +883,7 @@
 2323,0,8,4,2,0x2,1:1:2:2:3,5,-5,yes,0,0,0,weapon,0,	LG_EARTHDRIVE,Earth Drive
 2324,3,8,1,-1,0,0,5,3,yes,0,0,0,weapon,0,	LG_HESPERUSLIT,Hesperus Lit
 2325,0,6,4,0,0x1,0,5,1,yes,0,0,0,none,0,	LG_INSPIRATION,Inspiration
+2519,1,6,1,-1,0x2,0,5,1,yes,0,0,0,weapon,3:4:5:6:7, LG_OVERBRAND_BRANDISH,Over Brand
 
 //****
 // SR Sura
@@ -997,7 +998,7 @@
 2489,11,6,1,0,0,0,10,1:2:3:4:5:6:7:8:9:10,no,0,0,0,weapon,0,		GN_FIRE_EXPANSION_ACID,Fire Expansion Acid
 2490,9,6,2,0,0x3,1,5,1,yes,0,0x80,2:3:4:5:6,none,0,	GN_HELLS_PLANT,Hell's Plant
 2491,0,6,1,0,0xC0,0,5,1,no,0,0,0,misc,0,	GN_HELLS_PLANT_ATK,Hell's Plant Attack
-2492,0,6,4,0,0x3,6:7:8:9:10,5,1,yes,0,0,0,none,0,	GN_MANDRAGORA,Howling of Mandragora
+2492,0,6,4,0,0x3,5:6:6:7:7,5,1,yes,0,0,0,none,0,	GN_MANDRAGORA,Howling of Mandragora
 2493,11,6,16,0,0x1,0,1,1,yes,0,0,0,none,0,	GN_SLINGITEM,Sling Item
 2494,0,6,4,0,0x1,0,1,1,no,0,0,0,none,0,		GN_CHANGEMATERIAL,Change Material
 2495,0,6,4,0,0x1,0,2,1,no,0,0,0,none,0,		GN_MIX_COOKING,Mix Cooking
@@ -1027,6 +1028,32 @@
 //2546,0,0,1,0,0,0,99,0,0,none,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	//GM_ITEM_ATKMIN#Minimal Attack#
 //2547,0,0,1,0,0,0,99,0,0,none,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	//GM_ITEM_MATKMAX#Maximum Magic Attack#
 //2548,0,0,1,0,0,0,99,0,0,none,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	//GM_ITEM_MATKMIN#Minimal Magic Attack#
+
+// Rebellion
+2551,0,0,0,0,0,0,10,0,no,0,0,0,none,0,		RL_GLITTERING_GREED,Flip The Coin Greed//Not in the skill tree. Why and what does it do? Need real max level.
+2552,0,6,4,0,0x1,0,1,1,no,0,0,0,none,0,		RL_RICHS_COIN,Rich's Coin
+2553,15,6,1,-1,0,0,5,1,no,0,0,0,weapon,0,	RL_MASS_SPIRAL,Mass Spiral
+2554,9,6,1,-1,0x2,2,5,1,no,0,0,0,weapon,0,	RL_BANISHING_BUSTER,Banishing Buster
+2555,0,6,4,0,0x1,0,5,1,no,0,0,3,none,0,		RL_B_TRAP,Bind Trap
+2556,0,6,4,0,0x3,-1,1,1,no,0,0,0,none,0,	RL_FLICKER,Flicker
+2557,9,6,1,-1,0x2,2,5,1,no,0,0,0,weapon,0,	RL_S_STORM,Shatter Storm
+2558,0,6,4,0,0x1,0,10,1,no,0,0,0,none,0,	RL_E_CHAIN,Eternal Chain
+2559,0,6,4,-1,0,0,1,1,no,0,0x200,0,weapon,0,	RL_QD_SHOT,Quick Draw Shot
+2560,11,6,1,0,0x1,0,1,1,no,0,0,3,none,0,	RL_C_MARKER,Crimson Marker
+2561,0,6,4,-1,0x2,2,5,1,no,0,0,0,weapon,0,	RL_FIREDANCE,Fire Dance
+2562,7:8:9:10:11,6,1,-1,0,0,5,1,no,0,0,0,weapon,0,	RL_H_MINE,Howling Mine
+2563,0,6,4,0,0x1,0,5,1,no,0,0,0,none,0,		RL_P_ALTER,Platinum Alter
+2564,9,6,2,0,0x1,0,5,1,no,0,0,0,none,0,		RL_FALLEN_ANGEL,Fallen Angel//This skill doesen't deal damage and instead autocasts Desperado right?
+2565,0,6,4,-1,0x2,2:3:4:5:6,5,1,no,0,0,0,weapon,3,	RL_R_TRIP,Round Trip//How much knockback is there? Well put 3 for now.
+2566,0,6,4,-1,0x2,-1,5,1,no,0,0,0,weapon,0,	RL_D_TAIL,Dragon Tail
+2567,3,6,1,-1,0,0,5,1,no,0,0,0,weapon,0,	RL_FIRE_RAIN,Fire Rain
+2568,0,6,4,0,0x1,0,5,1,no,0,0,0,none,0,		RL_HEAT_BARREL,Heat Barrel
+2569,9,6,1,-1,0,0,5,1,no,0,0,0,weapon,0,	RL_AM_BLAST,Anti-Material Blast
+2570,9,6,1,-1,0,0,5,1,no,0,0,0,weapon,6,	RL_SLUGSHOT,Slug Shot//Tester found it knocks back and forces sit.
+2571,7:8:9:10:11,6,1,-1,0x2,2,5,1,no,0,0,0,weapon,0,	RL_HAMMER_OF_GOD,Hammer of God//Might be INF 2, but well use INF 1 for now.
+2572,0,6,1,-1,0x40,0,5,1,no,0,0,0,weapon,0,	RL_R_TRIP_PLUSATK,Round Trip Plus Attack
+2573,0,6,1,-1,0,0,5,1,no,0,0,0,weapon,0,	RL_B_FLICKER_ATK,Bind Flicker Attack//Max level guess based on Bind Trap max level.
+2574,0,6,1,-1,0,0,10,1,no,0,0,0,weapon,0,	RL_GLITTERING_GREED_ATK,Flip The Coin Greed Attack//Guess on max level is from Flip The Coin Greed
 
 // Kagerou & Oboro
 3001,0,6,4,0,0,0,1,1,no,0,0,0,none,0,		KO_YAMIKUMO,Yamikumo
@@ -1109,9 +1136,9 @@
 8021,1,6,1,0,0x1,0,5,1,no,0,0,0,none,0,		MH_PAIN_KILLER,Pain Killer
 8022,0,6,4,0,0,0x1,5,1,no,0,0,0,none,0,		MH_LIGHT_OF_REGENE,Light of Regene
 8023,0,6,4,0,0,0x1,5,1,no,0,0,0,none,0,		MH_OVERED_BOOST,Overed Boost
-8024,7,6,1,4:0:4:0:4,0,0,5,1,no,0,0,0,magic,0,	MH_ERASER_CUTTER,Eraser Cutter
-8025,7,6,2,4:0:4:0:4,0,0,5,1,no,0,0,0,magic,0,	MH_XENO_SLASHER,Xeno Slasher
-8026,5:5:7:7:9,6,16,0,0x1,0,5,1,no,0,0,0,magic,0,	MH_SILENT_BREEZE,Silent Breeze
+8024,7,8,1,4:0:4:0:4,0,0,5,-6,yes,0,0,0,magic,0,	MH_ERASER_CUTTER,Eraser Cutter
+8025,7,8,2,4:0:4:0:4,0x2,2:2:3:3:4,5,-6,no,0,0,0,magic,0,	MH_XENO_SLASHER,Xeno Slasher
+8026,5:5:7:7:9,6,1,0,0x1,0,5,1,no,0,0,0,magic,0,	MH_SILENT_BREEZE,Silent Breeze
 8027,0,6,4,0,0x1,0,1,1,no,0,0,0,none,0,		MH_STYLE_CHANGE,Style Change
 8028,1,8,1,0,0,0,5,1,no,0,0,0,weapon,0,		MH_SONIC_CRAW,Sonic Claw
 8029,1,6,4,0,0,0,5,1,no,0,0x200,0,weapon,0,	MH_SILVERVEIN_RUSH,Silver Bain Rush

@@ -1,0 +1,2831 @@
+Index: conf/harmony.conf
+===================================================================
+--- conf/harmony.conf	(revision 0)
++++ conf/harmony.conf	(working copy)
+@@ -0,0 +1,406 @@
++//        ___  ___   _______   ______   _    __   _______   _    __   __  __
++//       /  / /  /  / ___  /  / _   /  / \_ / /  / ___  /  / |  / /  / / / /
++//      /  /_/  /  / /  / /  / /_/ /  /      /  / /  / /  /  | / /  / /_/ /   
++//     /  __   /  / /__/ /  /    _/  / /\_/ /  / /  / /  / /||/ /  /_  __/
++//    /  / /  /  / ___  /  / /| |   / /  / /  / /__/ /  / / |  /    / /
++//   /__/ /__/  /_/  /_/  /_/ |_|  /_/  /_/  /______/  /_/  |_/    /_/
++//////////////////////////////////////////////////////////////////// v3.3 ///
++/////////////////////////////////////////////////////////////////////////////
++/////////////////////////////////////////////////////////////////////////////
++// -- Ragnarok Online Security Solution --
++// (c) 2008 - 2013 Daniel Stelter-Gliese
++//
++// For more information on this configuration consult the documentation at
++//    https://forum.harmonize.it/viewtopic.php?f=3&t=10
++////
++// DO NOT MODIFY THIS FILE.
++// Put custom configuration settings in harmony_custom.conf
++
++// GM level which allows users to bypass Harmony protection
++// Default: 100
++protection_bypass_level: 100
++
++
++// Logging method
++// Determines how Harmony logs events.
++// Possible values:
++//   0       Events are only logged to the server console
++//   1       Events are logged to the harmony_log SQL table
++//   2       Events are logged to log/harmony.log
++//   3       SQL logging is attempted, if it's unavailable the textfile is used
++// Default: 3
++log_method: 3
++
++////////////////////////////////////
++///////// BASIC INFORMATION ////////
++////////////////////////////////////
++// Harmony detects several cheating attempts.
++// You can configure how to react to each attempt.
++// Each setting is <action>,<delay in ms>[,<parameter>]
++// For more information check the forum topic:
++//    https://forum.harmonize.it/viewtopic.php?f=3&t=7
++//
++// Valid actions:
++//   kick		Kick the player
++//           	The player is sent back to the login screen.
++//           	Alternatively, you may specify the clif_authfail_fd()
++//           	type value as parameter:
++//           	   1	Server closed [msgstringtable: line 4]
++//           	   2	ID already logged in [msgstringtable: line 6]
++//           	   3	Time gap / too much lag [msgstringtable: line 242]
++//           	   4	Server full [msgstringtable: line 265]
++//           	   5	Underaged [msgstringtable: line 306]
++//           	   6	Server still recognizes your last connection [msgstringtable: line 442]
++//           	   7	Too many connections from this IP [msgstringtable: line 530]
++//           	   15	Disconnected by GM (== throw back to login screen)
++//           	   else	Disconnected from server [msgstringtable: line 4]
++//   ban        Bans the player. By default, the account state is set to 5.
++//              Alternatively, you may specify the stat as parameter:
++//                 ban, 0      sets state to 5
++//                 ban, 0, 5   sets state to 5
++//                 ban, 0, 102 sets state to 102
++//   jail		Jail the player
++//   message	Display a message (text as parameter)
++//   restrict	Restrict attack/skill actions
++//   autoban	Automatically bans the players IP. This will keep
++//         		hackers from testing their cheat attempts over and
++//          	over again.
++//           	The duration is given as delay value.
++//           	NOTE: A value of -1 blocks the IP infinitely
++//           	NOTE: All autobans are lifted after the server is restarted
++//           	NOTE: Due to the internal timing system of eAthena you should not
++//           	      use intervals of more than ~20 days. If you want to ban for
++//           	      a long period of time simply use -1 to block until next restart.
++//   console	Prints a message on the server console
++//
++// Delay specifies how many milliseconds to wait before performing this action.
++// NOTE: Actions are not triggered if the user logs out before this time expires.
++// IMPORTANT: For autoban actions, this flag identifies the autoban duration in seconds!
++//
++// The parameter is used for certain actions, such as messages. It's
++// content depends on the action.
++////////////
++////////////
++
++// Client Memory Modifications
++// NOTE: XRay exes will always trigger this due to polymorphic code. It must be disabled
++// in this case (by removing the two following lines)
++//
++// NOTE: No log entry is needed here. As long as there is at least one action
++// registered Harmony will automatically log the incident and include relevant
++// memory addresses. To only create log entry you can add a dummy-action like
++// "autoban, 0".
++codepatch: kick, 0
++codepatch: autoban, -1
++
++// Debugger -- used for analyzing and reversing the client internals
++// Normal players don't do that.
++debugger: autoban, -1
++debugger: kick, 0
++debugger: log, 0, Debugger attached
++
++// Speedhacks make the system time faster to bypass client-side
++// delay checks.
++// NOTE: Kicks caused by this detection are displayed like this:
++//       "You've been disconnected due to a time gap between you and the server."
++//       If many players get this error it is recommended to disable the kick action
++//       by removing the first of the three lines and using @reloadharmony.
++//       Please also contact the tech support about this issue, you will
++//       receive further information on how to deal with it and restore the
++//       correct speedhack detection.
++speedhack: kick, 0, 3
++speedhack: autoban, 0
++speedhack: log, 0, Speedhack detected
++
++////////////////////////////////////
++/////////// GRF INTEGRITY //////////
++////////////////////////////////////
++// Harmony is able to monitor the client GRF
++// for illegal files. The server maintains a list
++// of files and their correct checksum. If a client
++// opens a file with an unknown checksum Harmony will
++// raise an alert.
++// For detailed information consult the documentation.
++////
++
++// GM level which allows users to bypass the GRF integrity validation
++// If protection_bypass_level is lower than this value, protection_bypass_level is used.
++// Default: 100
++grfintegrity_bypass_level: 100
++
++////
++// Action chain for detected GRF modifications
++////
++
++// Whether to log GRF mismatches (includes player name, file name and sent hash)
++// If you don't use hdata.grf you might want to disable this (although it's
++// strongly recommended to use hdata.grf)
++grfintegrity_log_mismatch: yes
++
++// Immediately block attacks
++grfintegrity: restrict, 0
++
++// Then display a message
++// (To ensure that messages are printed in the correct order you may want to send them with a delay of 1ms)
++grfintegrity: message, 100, Illegal GRF modification detected!
++grfintegrity: message, 500, Please remove any custom modifications and restart the game.
++grfintegrity: message, 900, You are not allowed to attack.
++
++// And kick after a minute
++grfintegrity: kick, 60000
++
++// Number of seconds an IP is blocked if a modified GRF is detected
++// BEWARE: kRO updates might change files. When setting this value
++//         make sure your client includes all listed files and overwrites
++//         the default r/data.grf (or add hdata.grf with highest priority)
++grfintegrity: autoban, 0
++
++////////////////////////////////////
++////////// SERVER SIDE GMS /////////
++////////////////////////////////////
++
++// Whether the serverside GM list is enabled
++// This feature allows you to give admin accounts
++// the game master sprite and yellow font.
++// You can decide whether to list admin accounts
++// by their account ID or automatically flag
++// all accounts of a given level.
++// The <admin> section of clientinfo.xml is
++// ignored.
++serverside_gm_enabled: no
++
++// The minimum GM level required to automatically
++// show GM sprites.
++serverside_gm_minlevel: 60
++
++// List of account IDs that always get GM sprites,
++// regardless of their GM level
++// to include these two accounts.
++////
++serverside_gm_include:
++
++// List of account IDs that never get GM sprites,
++// even if their GM level is above serverside_gm_minlevel.
++// Use this setting once for each each account ID,
++// e.g.:
++//    serverside_gm_include: 2000000
++//    serverside_gm_include: 2000001
++// to exclude these two accounts.
++////
++serverside_gm_exclude:
++
++
++////////////////////////////////////
++/////// MULTI CLIENT SETTINGS //////
++////////////////////////////////////
++// Harmony can limit connections from certain IP addresses or
++// computers. You can use this feature to prevent excessive
++// multi clienting.
++////
++
++// Required GM level where sessions are not counted as
++// multi sessions.
++// Default: 99
++multiclient_bypass_level: 99
++
++/////////////////
++// Multiclient: IP limit
++/////////////////
++// Number of connections allowed per IP
++// Multiple physical computers might have the same same IP if
++// they are sharing one internet connection.
++// Use -1 to disable this check.
++// Default: -1 (unlimited)
++max_connections_per_ip: -1
++
++// What to do if the IP rate is exceeded
++multiclient_ip: log, 0, Too many connections from one IP.
++
++multiclient_ip: message, 100, The limit of simultaneous game connections was exceeded.
++// You might want to add this message telling the player what the actual limit is.
++// multiclient_ip: message, 500, There is a limit of <VALUE> logins per IP address.
++
++// This will trigger the following message:
++//  "IP capacity of this Internet Cafe is full. Would you like to pay the personal base?"
++//  You can customize this message by editing msgstringtable.txt line 530.
++multiclient_ip: kick, 5000, 9
++
++/////////////////
++// Multiclient: PC limit
++/////////////////
++// Number of connections allowed per physical computer
++// Use -1 to disable this check.
++// Default: -1 (unlimited)
++max_connections_per_pc: -1
++
++// What to do if the PC rate is exceeded
++multiclient_pc: log, 0, Too many connections from one PC.
++
++multiclient_pc: message, 100, The limit of simultaneous game connections was exceeded.
++// You might want to add this message telling the player what the actual limit is.
++// multiclient_pc: message, 500, There is a limit of <VALUE> logins per computer.
++
++// This will trigger the following message:
++//  "IP capacity of this Internet Cafe is full. Would you like to pay the personal base?"
++//  You can customize this message by editing msgstringtable.txt line 530.
++multiclient_pc: kick, 5000, 9
++
++////////////////////////////////////
++///////// AUTOBAN SETTINGS /////////
++////////////////////////////////////
++// Several generic events which can be enabled for autoban
++// See <link> for further information on the autoban feature
++////
++// Autoban feature enabled?
++// For details, see the basic information block below
++// Default: yes
++autoban_enabled: yes
++
++// Number of seconds an IP is banned when an unencrypted login is detected
++// This might indicate a 3rd party client exe or an attempt to use OpenKore
++// Default: 10 minutes
++autoban_unsafe_login: 600
++
++// Number of seconds an IP is banned when a protocol error is detected
++// This strongly indicates an attempt to emulate or bypass Harmony.
++// Default: infinite
++autoban_malformed_protocol: -1
++
++// Number of seconds an IP is banned if a connection is made from a blocked Mac address
++// (When a PC is blocked by Mac address every connection attempt from this PC will result
++//  in the current IP address being blocked for some time)
++// - Useful to make bypassing Mac bans harder
++// Default: 12 hours
++autoban_mac_blocked: 43200
++
++////////////////////////////////////
++//////////// SPELL DELAY ///////////
++////////////////////////////////////
++// Monitors incoming skill usage packets from the client.
++// If a client sends way more skill packets than possible with a regular
++// skill delay this strongly indicates a no-delay hack.
++// To avoid false positives due to network lags the detection is triggered
++// only if such packet patterns are detected multiple times over a certain
++// period of time.
++////
++
++// Default configuration:
++// If a client sends more than 12 (spelldelay_threshold) skill packets within
++// one second (spelldelay_interval) the internal fail counter is increased.
++// If a clients fail counter exceeds 5 (spelldelay_failcount) a no-delay
++// detection is triggered (nodelay)
++
++// Whether the no-delay detection is enabled
++spelldelay_enabled: yes
++
++// Number of milliseconds for each monitoring interval
++// Default: 1000ms
++spelldelay_interval: 1000
++
++// Number of skill packets allowed in this period
++// Default: 14 (theoretical maximum: 10)
++spelldelay_threshold: 14
++
++// How often a packet flood must have been detected before any action is taken
++spelldelay_failcount: 5
++
++// Number of milliseconds after the fail count is decreased by one (to avoid false
++// positives triggering the detection after a long time in game)
++// Default: 60000
++spelldelay_cooldown: 60000
++
++nodelay: restrict, 0
++nodelay: message, 100, You will be disconnected for skill spam in 15 seconds.
++nodelay: kick, 15000, 15
++nodelay: log, 0, No-Delay hack detected
++
++
++////////////////////////////////////
++//////// DEDICATED HACKS ///////////
++////////////////////////////////////
++// This section covers targeted attacks against Harmony.
++////
++
++// NdlHaste / LinkZ tool is found
++ndl: log, 0, Dedicated NoDelay hack (NdlHaste) detected
++ndl: ban, 0, 102
++ndl: autoban, 0, -1
++ndl: message, 10000, An illegal cheat tool has been found. You will be logged out in 15 seconds.
++ndl: jail, 10001
++ndl: kick, 25000, 15
++
++// A system thread used by Harmony has been suspended (i.e. a check has been forcefully 'frozen')
++detect_thread_sus: log, 0, An internal Harmony thread has been suspended
++detect_thread_sus: message, 0, You are about to be logged out due to a failed security synchronization.
++detect_thread_sus: kick, 15000, 15
++
++// A system thread used by Harmony has been forcefully terminated
++// A common attempt to bypass signature scans by terminating the worker thread Harmony uses
++detect_thread_term: log, 0, An internal Harmony thread has been terminated.
++detect_thread_term: ban, 0, 102
++detect_thread_term: autoban, 0, -1
++detect_thread_term: message, 0, Critical security synchronization failed. Your account has been locked for further investigation.
++detect_thread_term: kick, 15000, 15
++
++// Dangerous. Please report this immediately if you see it in your logs.
++detect_der: log, 0, Suspicious debugging activity detected. Please report this immediately.
++detect_der: ban, 30000, 102
++detect_der: autoban, 30000, -1
++
++// Dangerous. Please report this immediately if you see it in your logs.
++detect_strtok: log, 0, Illegal stream token. Please report this immediately.
++detect_strtok: ban, 30000, 102
++detect_strtok: autoban, 30000, -1
++
++// Speedhack settings
++/////////////////////
++// See https://forum.harmonize.it/viewtopic.php?f=3&t=33 for an explanation of these settings
++zone_malformed_grace_time: 45000
++zone_time_glitch: 30000
++zone_time_glitch_cooldown: 400000 // (n+30k)/n -> 7.5% 
++
++////////////////////////////////////
++//////////// Hotpatches ////////////
++////////////////////////////////////
++// Hotpatches are dynamic checks that are triggered by the server. They can be applied
++// without updating the client, which makes them an efficient weapon against constantly changing
++// hacking tools.
++////
++
++// How often dynamic checks are performed
++// The interval is hp_interval_base + random(0, hp_interval_deviation)
++// Default: Every two to ten minutes ("120 seconds plus random value between 0 and 480 seconds")
++hp_interval_base: 120000
++hp_interval_deviation: 480000
++
++// How often a patch can fail to load before the error chain is triggered
++hp_maximum_error_count: 4
++
++// Chain that is triggered if a hotpatch detects an illegal third party tool
++hp_on_detection: log, 0, A dynamic scan reported malicious activity.
++hp_on_detection: message, 5000, An illegal third-party program has been found. You will be logged out in 15 seconds.
++hp_on_detection: kick, 20000
++
++// Chain that is triggered if a hotpatch fails to load multiple times. This indicates severe packet loss,
++// which is usually caused by incorrect packet_db settings.
++hp_on_error: log, 0, A dynamic scan failed to load repeatedly. This is usually caused by accidental protocol errors and does not imply malicious intents.
++hp_on_error: message, 5000, A security check could not be performed. You will be logged out in 15 seconds.
++hp_on_error: kick, 20000 // Still kick the player, just to make sure
++
++// List of registered hotpatches. Don't modify unless you perfectly know what you're doing.
++import: harmony/hotpatches.conf
++
++////////////////////////////////////
++///////// INTERNAL SETTINGS ////////
++////////////////////////////////////
++// Internal configuration
++// DON'T change anything unless you know what you're doing.
++////
++detection: 0, detect_thread_sus
++detection: 1, detect_der
++detection: 2, detect_strtok
++detection: 5, ndl
++detection: 6, detect_thread_term
++
++// Put all customized settings in this file!
++import: conf/harmony_custom.conf
+Index: conf/harmony_custom.conf
+===================================================================
+--- conf/harmony_custom.conf	(revision 0)
++++ conf/harmony_custom.conf	(working copy)
+@@ -0,0 +1,72 @@
++// Put all customized settings in this file. harmony.conf will be overwritten updates!
++
++
++////////////////////////////////////
++////////// CLIENT CHECKSUM /////////
++////////////////////////////////////
++// Harmony enforces the usage of unmodified client binaries.
++// However, you have to add your client checksum here to
++// allow only permitted exes. The checksum is a MD5 hash of
++// the exe.
++///
++// To get the checksum of your exe you can use this tool:
++//   https://harmonize.it/customer/md5
++///
++// To reload this configuration while the server is running use @reloadharmony.
++////
++
++// GM level >= 0 requires this hash
++client_checksum: 0, aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
++// GM level >= 20 requires this hash (level 0 hash works here, too)
++client_checksum: 20, bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
++// GM level 99 has no checksum limitations
++client_checksum: 99, off
++
++
++// Common configuration settings
++//////////////////////////////////
++
++// GM level which allows users to bypass Harmony protection
++// Default: 100
++protection_bypass_level: 100
++
++// GM level which allows users to bypass the GRF integrity validation
++// If protection_bypass_level is lower than this value, protection_bypass_level is used.
++// Default: 100
++grfintegrity_bypass_level: 100
++
++////////////////////////////////////
++////////// SERVER SIDE GMS /////////
++////////////////////////////////////
++// Whether the serverside GM list is enabled
++// This feature allows you to give admin accounts
++// the game master sprite and yellow font.
++// You can decide whether to list admin accounts
++// by their account ID or automatically flag
++// all accounts of a given level.
++// The <admin> section of clientinfo.xml is
++// ignored.
++serverside_gm_enabled: no
++
++// The minimum GM level required to automatically
++// show GM sprites. Use -1 to disable.
++serverside_gm_minlevel: 60
++
++// Accounts that always get GM sprites, regardless of
++// their GM level. Use this setting once for each account ID,
++// e.g.:
++//    serverside_gm_include: 2000000
++//    serverside_gm_include: 2000001
++// to include these two accounts.
++////
++serverside_gm_include:
++
++// List of account IDs that never get GM sprites,
++// even if their GM level is above serverside_gm_minlevel.
++// Use this setting once for each each account ID,
++// e.g.:
++//    serverside_gm_include: 2000000
++//    serverside_gm_include: 2000001
++// to exclude these two accounts.
++////
++serverside_gm_exclude:
+Index: Hercules-10.sln
+===================================================================
+--- Hercules-10.sln	(revision 14262)
++++ Hercules-10.sln	(working copy)
+@@ -1,5 +1,5 @@
+ Microsoft Visual Studio Solution File, Format Version 11.00
+-# Visual Studio 2010
++# Visual C++ Express 2010
+ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "char-server", "vcproj-10\char-server.vcxproj", "{D356871D-58E1-450B-967A-E4E9646175AF}"
+ EndProject
+ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "login-server", "vcproj-10\login-server.vcxproj", "{D356871D-58E1-450B-967A-E5E9646175AF}"
+@@ -10,7 +10,7 @@
+ EndProject
+ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plugin-sample", "vcproj-10\plugin-sample.vcxproj", "{E64C56D3-CDFB-483B-900B-A62D216B6D2F}"
+ EndProject
+-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plugin-HPMHooking", "vcproj-10\plugin-HPMHooking.vcxproj", "{E64C56D3-CDFB-483B-900B-A62D216B6D2F}"
++Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plugin-HPMHooking", "vcproj-10\plugin-HPMHooking.vcxproj", "{7ED92B9F-95E8-49B8-9D4F-C4C9BFDE0B22}"
+ EndProject
+ Global
+ 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+@@ -36,8 +36,8 @@
+ 		{D356871D-58E1-450B-967A-E7E9646175AF}.Release|Win32.Build.0 = Release|Win32
+ 		{E64C56D3-CDFB-483B-900B-A62D216B6D2F}.Debug|Win32.ActiveCfg = Debug|Win32
+ 		{E64C56D3-CDFB-483B-900B-A62D216B6D2F}.Release|Win32.ActiveCfg = Release|Win32
+-		{E64C56D3-CDFB-483B-900B-A62D216B6D2F}.Debug|Win32.ActiveCfg = Debug|Win32
+-		{E64C56D3-CDFB-483B-900B-A62D216B6D2F}.Release|Win32.ActiveCfg = Release|Win32
++		{7ED92B9F-95E8-49B8-9D4F-C4C9BFDE0B22}.Debug|Win32.ActiveCfg = Debug|Win32
++		{7ED92B9F-95E8-49B8-9D4F-C4C9BFDE0B22}.Release|Win32.ActiveCfg = Release|Win32
+ 	EndGlobalSection
+ 	GlobalSection(SolutionProperties) = preSolution
+ 		HideSolutionNode = FALSE
+Index: src/char/char.c
+===================================================================
+--- src/char/char.c	(revision 14262)
++++ src/char/char.c	(working copy)
+@@ -2415,6 +2415,17 @@
+ 				RFIFOSKIP(fd,2);
+ 				session[fd]->flag.ping = 0;
+ 			break;
++			
++			// Harmony
++			case 0x40a3:
++				if (RFIFOREST(fd) < 4 || RFIFOREST(fd) < RFIFOW(fd,2))
++					return 0;
++				{
++					RFIFOW(fd, 0) = 0x40a4;
++					mapif_sendall(RFIFOP(fd, 0), RFIFOW(fd,2));
++				}
++				RFIFOSKIP(fd, RFIFOW(fd,2));
++			break;
+ 
+ 			// changesex reply
+ 			case 0x2723:
+@@ -3582,7 +3593,25 @@
+ 				set_char_online(id, RFIFOL(fd,2),RFIFOL(fd,6));
+ 				RFIFOSKIP(fd,10);
+ 			break;
++			
++			case 0x40a1: // Harmony
++			{
++				uint16 len;
+ 
++				if (RFIFOREST(fd) < 4 || RFIFOREST(fd) < (len = RFIFOW(fd,2)))
++					return 0;
++
++				if (login_fd > 0) {
++					WFIFOHEAD(login_fd,len);
++					WFIFOW(login_fd, 0) = 0x40a2;
++					memcpy(WFIFOP(login_fd, 2), RFIFOP(fd, 2), len-2);
++					WFIFOSET(login_fd, len);
++				}
++
++				RFIFOSKIP(fd, len);
++			}
++			break;
++
+ 			case 0x2b1a: // Build and send fame ranking lists [DracoRPG]
+ 				if (RFIFOREST(fd) < 2)
+ 					return 0;
+Index: src/common/core.c
+===================================================================
+--- src/common/core.c	(revision 14262)
++++ src/common/core.c	(working copy)
+@@ -20,6 +20,7 @@
+ #include "../common/showmsg.h"
+ #include "../common/strlib.h"
+ #include "../common/sysinfo.h"
++#include "../common/harmony.h"
+ 
+ #ifndef MINICORE
+ #	include "../common/HPM.h"
+@@ -158,9 +159,16 @@
+ }
+ #endif
+ 
++#ifdef SVNVERSION
++const char *get_svn_revision(void) {
++	return EXPAND_AND_QUOTE(SVNVERSION);
++}
++#else// not SVNVERSION
++
++#endif
+ /**
+- * Warns the user if executed as superuser (root)
+- */
++* Warns the user if executed as superuser (root)
++*/
+ void usercheck(void) {
+ 	if (sysinfo->is_superuser()) {
+ 		ShowWarning("You are running Hercules with root privileges, it is not necessary.\n");
+@@ -245,9 +253,9 @@
+ 	HCache->init();
+ 	
+ 	HPM->init();
+-
++		
+ 	sockt->init();
+-
++	harmony_core_init();
+ 	do_init(argc,argv);
+ 	{// Main runtime cycle
+ 		int next;
+@@ -256,9 +264,10 @@
+ 			sockt->perform(next);
+ 		}
+ 	}
+-
++	
++	harmony_core_final();
+ 	console->final();
+-	
++do_final();	
+ 	retval = do_final();
+ 	HPM->final();
+ 	timer->final();
+Index: src/common/harmony.h
+===================================================================
+--- src/common/harmony.h	(revision 0)
++++ src/common/harmony.h	(working copy)
+@@ -0,0 +1,17 @@
++#ifndef _HARMONYCORE_H
++#define _HARMONYCORE_H
++
++
++#include "../common/harmserv.h"
++
++void harmony_core_init();
++void harmony_core_final();
++
++extern struct HARMSRV_EA_FUNCS   *ea_funcs;
++extern struct HARMSRV_HARM_FUNCS *harm_funcs;
++
++#define HARMSW_EATHENA         0
++#define HARMSW_RATHENA_GROUP   1
++
++#endif
++
+Index: src/common/harmonycore.c
+===================================================================
+--- src/common/harmonycore.c	(revision 0)
++++ src/common/harmonycore.c	(working copy)
+@@ -0,0 +1,387 @@
++// (c) 2008 - 2013 Harmony Project; Daniel Stelter-Gliese / Sirius_White
++//  For more information contact info@harmonize.it
++//
++// This file is NOT public - you are not allowed to distribute it.
++#define HERCULES_CORE
++
++#include "../common/cbasetypes.h"
++#include "../common/showmsg.h"
++#include "../common/db.h"
++#include "../common/strlib.h"
++#include "../common/socket.h"
++#include "../common/timer.h"
++#include "../common/malloc.h"
++#include "../common/harmony.h"
++#include "../common/console.h"
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#ifdef WIN32
++	#include <windows.h>
++#else
++	#include <dlfcn.h>
++	#include <sys/types.h>
++	#include <sys/stat.h>
++	#include <sys/mman.h>
++	#include <fcntl.h>
++#endif
++
++#define HARMONY_USE_EA_MEMMGR
++
++/* ind start */
++#ifdef WIN32
++#include "../common/winapi.h" // GetTickCount()
++#else
++#include <unistd.h>
++#include <sys/time.h> // struct timeval, gettimeofday()
++#endif
++
++
++static unsigned int hTick(void) {
++#if defined(WIN32)
++	return GetTickCount();
++#else
++	struct timeval tval;
++	gettimeofday(&tval, NULL);
++	return tval.tv_sec * 1000 + tval.tv_usec / 1000;
++#endif
++}
++/* ind end */
++
++
++// ---
++
++// ---
++
++void *harmony_module = NULL;
++
++static DBMap *mod_exports = NULL;
++static DBMap *harm_timer = NULL;
++
++struct HARMSRV_EA_FUNCS   *ea_funcs   = NULL;
++struct HARMSRV_HARM_FUNCS *harm_funcs = NULL;
++
++#ifdef __64BIT__
++	#define HARMCODEFILE "./harmony/data64.bin"
++	typedef uint64 hsysint;
++#else
++	#define HARMCODEFILE "./harmony/data.bin"
++	typedef uint32 hsysint;
++#endif
++
++// ---
++
++static void* harmony_get_symbol(const char *name);
++static bool harmony_load_module(const char *path);
++
++void _FASTCALL harmony_abnormal_start(int code);
++void** _FASTCALL ea_fd2harmsession(int fd);
++unsigned int _FASTCALL ea_tick(void);
++int _FASTCALL ea_timer_add(unsigned int tick, HarmTimerProc func, int id, intptr data);
++int _FASTCALL ea_timer_del(int tid, HarmTimerProc func);
++void _FASTCALL ea_socket_disconnect(int fd);
++void _FASTCALL ea_socket_send(int fd, const unsigned char* buf, int length);
++void _FASTCALL harm_msg(const char *format);
++
++
++void * _FASTCALL crt_alloc(size_t size);
++void   _FASTCALL crt_free(void * ptr);
++
++void  _FASTCALL crt_exit(int code);
++
++void* _FASTCALL crt_fopen(const char* file, const char *mode);
++int   _FASTCALL crt_fclose(void* file);
++char* _FASTCALL crt_fgets(char* buf, int max_count, void* file);
++size_t _FASTCALL crt_fread(void* ptr, size_t size, size_t count, void* file);
++
++time_t _FASTCALL crt_time(time_t* timer);
++int _FASTCALL crt_rand(void);
++void _FASTCALL crt_srand(unsigned int seed);
++
++
++// ---
++
++void harmony_core_final() {
++	db_destroy(mod_exports);
++	db_destroy(harm_timer);
++	harm_funcs->final();
++}
++
++void harmony_core_init() {
++	int *module_version;
++	void (*module_init)();
++
++	if (!harmony_load_module(HARMCODEFILE)) {
++		ShowFatalError("Unable to load Harmony module.\n");
++		exit(EXIT_FAILURE);
++	}
++
++	module_version = (int*)harmony_get_symbol("version");
++	if (!module_version) {
++		ShowFatalError("Unable to determine Harmony version.\n");
++		exit(EXIT_FAILURE);
++	}
++
++	if (*module_version != HARMSRV_VERSION) {
++		ShowFatalError("Invalid Harmony version! Expecting %d, have %d.\n", HARMSRV_VERSION, *module_version);
++		ShowFatalError("Did you forget to recompile after updating?\n");
++		exit(EXIT_FAILURE);
++	}
++	ShowStatus("Harmony Version: %d.%d.%d\n", HARMSRV_VERSION_MAJOR, HARMSRV_VERSION_MINOR, HARMSRV_VERSION_PATCH);
++
++	harm_funcs = (struct HARMSRV_HARM_FUNCS*)harmony_get_symbol("harm_funcs");
++	ea_funcs = (struct HARMSRV_EA_FUNCS*)harmony_get_symbol("ea_funcs");
++	module_init = (void(*)())harmony_get_symbol("Init");
++	if (!harm_funcs || !ea_funcs || !module_init) {
++		ShowFatalError("Invalid harmony module exports.\n");
++		exit(EXIT_FAILURE);
++	}
++
++	ea_funcs->alloc = crt_alloc;
++	ea_funcs->free = crt_free;
++	ea_funcs->exit = crt_exit;
++	ea_funcs->fopen = crt_fopen;
++	ea_funcs->fclose = crt_fclose;
++	ea_funcs->fread = crt_fread;
++	ea_funcs->fgets = crt_fgets;
++#if HARMSRV_VERSION >= 30312
++	ea_funcs->time = crt_time;
++	ea_funcs->rand = crt_rand;
++	ea_funcs->srand = crt_srand;
++#endif
++
++	ea_funcs->harm_msg = harm_msg;
++	ea_funcs->harmsrv_abnormal_error = harmony_abnormal_start;
++	ea_funcs->ea_fd2harmsession = ea_fd2harmsession;
++	ea_funcs->ea_tick = ea_tick;
++	ea_funcs->timer_add = ea_timer_add;
++	ea_funcs->timer_del = ea_timer_del;
++	ea_funcs->socket_disconnect = ea_socket_disconnect;
++	ea_funcs->socket_send = ea_socket_send;
++
++	harm_timer = idb_alloc(DB_OPT_RELEASE_DATA);
++
++	module_init();
++	harm_funcs->init();
++}
++
++static uint8 *harmony_map_file(const char *path, size_t *size) {
++	uint8 *buf;
++
++#ifdef WIN32
++	HANDLE hFile;
++	DWORD dwBytesWritten;
++
++	hFile = CreateFile(path, GENERIC_READ | GENERIC_EXECUTE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
++	if (!hFile)
++		return NULL;
++	*size = GetFileSize(hFile, NULL);
++
++	buf = (uint8*)VirtualAlloc(NULL, *size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
++	if (!buf) {
++		CloseHandle(hFile);
++		return NULL;
++	}
++
++	if (!ReadFile(hFile, buf, (DWORD)*size, &dwBytesWritten, NULL) || dwBytesWritten != (DWORD)*size) {
++		CloseHandle(hFile);
++		return NULL;
++	}
++	
++	CloseHandle(hFile);
++#else
++	struct stat statinf;
++
++	if (stat(path, &statinf))
++		return NULL;
++
++	int fd = open(path, O_RDONLY);
++	if (!fd)
++		return NULL;
++
++	buf = mmap(NULL, statinf.st_size, PROT_EXEC | PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
++	*size = statinf.st_size;
++#endif
++	return buf;
++}
++
++static bool harmony_load_module(const char *path) {
++	size_t i;
++	struct HARMSRV_MOD_HEADER *head;
++	size_t pos, size = 0;
++	uint8 *buf = harmony_map_file(path, &size);
++	if (!buf) {
++		ShowFatalError("Failed to open %s.\n", path);
++		return false;
++	}
++
++	if (size < sizeof(struct HARMSRV_MOD_HEADER))
++		return false;
++
++	head = (struct HARMSRV_MOD_HEADER *)buf;
++	if (head->signature != HARMSRV_MOD_HEADER_SIGNATURE)
++		return false;
++	pos = sizeof(*head);
++	// Relocations
++	{
++		hsysint delta = (hsysint)(buf + head->mem_offset);
++		for (i = 0; i < head->reloc_count; i++) {
++			*(hsysint*)(buf + head->mem_offset + *(uint32*)(buf + pos + i * sizeof(uint32))) += delta;
++		}
++		pos += head->reloc_count * sizeof(uint32);
++	}
++	// Exports
++	{
++		mod_exports = strdb_alloc(DB_OPT_BASE, 50);
++		for (i = 0; i < head->export_count; i++) {
++			uint32 offset = *(uint32*)(buf + pos);
++			strdb_put(mod_exports, (char*)buf+pos+5, buf + head->mem_offset + offset);
++			pos += 4 + 1 + *(uint8*)(buf + pos + 4) + 1;
++		}
++	}
++	return true;
++}
++
++// ---
++
++void * _FASTCALL crt_alloc(size_t size) {
++#ifdef HARMONY_USE_EA_MEMMGR
++	return aCalloc(size, 1);
++#else
++	return malloc(size);
++#endif
++}
++
++void _FASTCALL crt_free(void *ptr) {
++#ifdef HARMONY_USE_EA_MEMMGR
++	aFree(ptr);
++#else
++	free(ptr);
++#endif
++}
++
++void  _FASTCALL crt_exit(int code) {
++	exit(code);
++}
++
++void* _FASTCALL crt_fopen(const char* file, const char *mode) {
++	return (void*)fopen(file, mode);
++}
++
++int   _FASTCALL crt_fclose(void* file) {
++	return fclose((FILE*)file);
++}
++
++char* _FASTCALL crt_fgets(char* buf, int max_count, void* file) {
++	return fgets(buf, max_count, (FILE*)file);
++}
++
++size_t _FASTCALL crt_fread(void* ptr, size_t size, size_t count, void* file) {
++	return fread(ptr, size, count, (FILE*)file);
++}
++
++time_t _FASTCALL crt_time(time_t* t) {
++	return time(t);
++}
++
++int _FASTCALL crt_rand(void) {
++	return rand();
++}
++
++void _FASTCALL crt_srand(unsigned int seed) {
++	srand(seed);
++}
++
++void _FASTCALL ea_socket_disconnect(int fd) {
++	session[fd]->flag.eof = 1;
++}
++
++void _FASTCALL ea_socket_send(int fd, const unsigned char* buf, int length) {
++	WFIFOHEAD(fd, length);
++	memcpy(WFIFOP(fd, 0), buf, length);
++	WFIFOSET(fd, length);
++}
++
++/* GCC sure is fun. */
++
++struct GccBinaryCompatibilityDoesNotSeemToExist {
++	intptr data;
++	int id;
++	HarmTimerProc func;
++};
++
++int ea_timer_wrap(int tid, int64 tick, int id, intptr data) {
++	struct GccBinaryCompatibilityDoesNotSeemToExist *e = (struct GccBinaryCompatibilityDoesNotSeemToExist *)data;
++	
++	e->func(tid, hTick(), e->id, e->data);
++	idb_remove(harm_timer, tid);
++
++	return 0;
++}
++
++int _FASTCALL ea_timer_add(unsigned int tick, HarmTimerProc func, int id, intptr data) {
++//#if !defined(__64BIT__)
++//	return timer->add(tick, (TimerFunc)func, id, data);
++//#else
++	struct GccBinaryCompatibilityDoesNotSeemToExist *e;
++	int tid;
++	int64 new_tick = ( tick - hTick() ) + timer->gettick();
++
++	CREATE(e, struct GccBinaryCompatibilityDoesNotSeemToExist, 1);
++
++	tid = timer->add(new_tick, ea_timer_wrap, 0, (intptr)e);
++	e->data = data;
++	e->id = id;
++	e->func = func;
++	idb_put(harm_timer, tid, e);
++
++	return tid;
++//#endif
++}
++
++int _FASTCALL ea_timer_del(int tid, HarmTimerProc func) {
++//#if !defined(__64BIT__)
++//	return timer->delete(tid, (TimerFunc)func);
++//#else
++	struct GccBinaryCompatibilityDoesNotSeemToExist *e = (struct GccBinaryCompatibilityDoesNotSeemToExist *)idb_get(harm_timer, tid);
++
++	if (!e) {
++		ShowWarning("Trying to remove non-existing timer %d\n", tid);
++		return -1;
++	}
++
++	if (e->func != func) {
++		ShowWarning("ea_timer_del: FUnction mismatch!\n");
++		return -1;
++	}
++
++	idb_remove(harm_timer, tid);
++
++	return timer->delete(tid, (TimerFunc)ea_timer_wrap);
++//#endif
++}
++
++/* --- */
++
++unsigned int _FASTCALL ea_tick(void) {
++	return hTick();
++}
++
++void** _FASTCALL ea_fd2harmsession(int fd) {
++	return &session[fd]->harm_sd;
++}
++
++void _FASTCALL harmony_abnormal_start(int code) {
++	ShowFatalError("Harmony module reported critical startup code: %d\n", code);
++	exit(EXIT_FAILURE);
++}
++
++static void* harmony_get_symbol(const char *name) {
++	return strdb_get(mod_exports, name);
++}
++
++void _FASTCALL harm_msg(const char *msg) {
++	ShowMessage(""CL_MAGENTA"[Harmony]"CL_RESET": %s", msg);
++}
+Index: src/common/harmserv.h
+===================================================================
+--- src/common/harmserv.h	(revision 0)
++++ src/common/harmserv.h	(working copy)
+@@ -0,0 +1,181 @@
++// (c) 2008 - 2013 Harmony Project; Daniel Stelter-Gliese / Sirius_White
++//
++//  - white@siriuswhite.de
++//  - ICQ #119-153
++//  - MSN msn@siriuswhite.de
++//
++// This file is NOT public - you are not allowed to distribute it.
++
++#ifndef _HARMSERV_H
++#define _HARMSERV_H
++
++#define HARMSRV_VERSION_MAJOR 3
++#define HARMSRV_VERSION_MINOR 3
++#define HARMSRV_VERSION_PATCH 12
++
++#define HARMSRV_VERSION (HARMSRV_VERSION_MAJOR * 10000 + HARMSRV_VERSION_MINOR * 100 + HARMSRV_VERSION_PATCH)
++
++#if defined(__64BIT__) && defined(_MSC_VER)
++	#define _FASTCALL
++	#define _STDCALL
++	#define _TIMERCALL
++#elif defined(__64BIT__)
++	#if !defined(__GNUC__)
++		#error Invalid compiler
++	#elif __GNUC__  < 4 || (__GNUC__  == 4 && __GNUC_MINOR__ < 4)
++		#error GCC 4.4 required!
++		#define _FASTCALL
++		#define _STDCALL
++		#define _TIMERCALL
++	#else
++		#define _FASTCALL __attribute__((ms_abi))
++		#define _STDCALL __attribute__((ms_abi))
++		#define _TIMERCALL __attribute__((ms_abi))
++	#endif
++#elif defined(_MSC_VER)
++	#define _FASTCALL __fastcall
++	#define _STDCALL __stdcall
++	#define _TIMERCALL __cdecl
++#else
++	#define _FASTCALL __attribute__((fastcall))
++	#define _STDCALL __attribute__((stdcall))
++	#define _TIMERCALL __attribute__((cdecl))
++#endif
++
++#define HSRV_CALL(name, rettype, args) rettype (_FASTCALL * name)args
++
++#ifdef __cplusplus
++extern "C" {	
++#endif
++
++enum {
++	HARMTASK_UNKNOWN = 0,
++	HARMTASK_KICK,
++	HARMTASK_ATCMD,
++	HARMTASK_MSG,
++	HARMTASK_PACKET,
++	HARMTASK_GET_ID,
++	HARMTASK_DC,
++	HARMTASK_LOGIN_ACTION,
++	HARMTASK_ZONE_ACTION,
++	HARMTASK_GET_FD,
++	HARMTASK_IS_ACTIVE,
++	HARMTASK_SET_LOG_METHOD,
++	HARMTASK_INIT_GROUPS,
++	HARMTASK_RESOLVE_GROUP,
++	HARMTASK_BAN,
++	HARMTASK_JAIL,
++	HARMTASK_SCRIPT,
++	HARMTASK_GET_ADMINS,
++	HARMTASK_IS_CHAR_CONNECTED,
++
++	HARMTASK_LAST
++};
++
++enum {
++	HARMID_AID = 0,
++	HARMID_GID,
++	HARMID_GDID,
++	HARMID_PID,
++	HARMID_CLASS,
++	HARMID_GM,
++};
++
++typedef int (_TIMERCALL *HarmTimerProc)(int tid, unsigned int tick, int id, intptr data);
++
++// http://gcc.gnu.org/onlinedocs/gcc/Structure_002dPacking-Pragmas.html
++#pragma pack(push, 1)
++
++/* Function table */
++struct HARMSRV_HARM_FUNCS {
++	// CORE
++	HSRV_CALL(net_send, void, (int fd, uint8 *buf, int len));
++	HSRV_CALL(net_recv, int, (int fd, uint8 *buf, int len, uint8 *base_buf, size_t base_len));
++	HSRV_CALL(session_new, int, (int fd, uint32 client_addr));
++	HSRV_CALL(session_del, void, (int fd));
++
++	HSRV_CALL(is_secure_session, int, (int fd));
++
++	HSRV_CALL(init, void, (void));
++	HSRV_CALL(final, void, (void));
++
++	// LOGIN
++	HSRV_CALL(login_init, void, (void));
++	HSRV_CALL(login_final, void, (void));
++	HSRV_CALL(login_process_auth, int, (int fd, uint8* buf, size_t buf_len, int8* username, int8* password, uint32* version));
++	HSRV_CALL(login_process_auth2, int, (int fd, int level));
++	HSRV_CALL(login_process, void, (int fd, uint8* buf, size_t buf_len));
++	HSRV_CALL(login_get_mac_address, void, (int fd, int8 *buf));
++
++	// ZONE
++	HSRV_CALL(zone_init, void, (void));
++	HSRV_CALL(zone_final, void, (void));
++	HSRV_CALL(zone_process, int, (int fd, uint16 cmd, uint8* buf, size_t buf_len));
++	HSRV_CALL(zone_logout, void, (int fd));
++	HSRV_CALL(zone_reload, void, (void));
++	HSRV_CALL(zone_grf_reload, void, (void));
++	HSRV_CALL(zone_autoban_show, void, (int fd));
++	HSRV_CALL(zone_autoban_lift, void, (uint32 ip));
++	HSRV_CALL(zone_login_pak, void, (uint8* buf, size_t buf_len));
++	HSRV_CALL(zone_get_mac_address, void, (int fd, int8 *buf));
++	HSRV_CALL(zone_register_group, void, (int group_id, int level));
++	HSRV_CALL(zone_register_admin, bool, (int aid, bool exclude));
++	HSRV_CALL(zone_run_hotpatch, bool, (int src_fd, int dst_fd, const char* title, bool trigger_chains));
++};
++
++struct HARMSRV_EA_FUNCS {
++	HSRV_CALL(alloc, void*, (size_t size));
++	HSRV_CALL(free, void, (void *ptr));
++
++	HSRV_CALL(exit, void, (int code));
++#if HARMSRV_VERSION >= 30312
++	HSRV_CALL(rand, int, (void));
++	HSRV_CALL(srand, void, (unsigned int));
++	HSRV_CALL(time, time_t, (time_t* timer));
++#endif
++
++	HSRV_CALL(fopen, void*, (const char* file, const char *mode));
++	HSRV_CALL(fclose, int, (void* file));
++	HSRV_CALL(fgets, char*, (char* buf, int max_count, void* file));
++	HSRV_CALL(fread, size_t, (void* ptr, size_t size, size_t count, void* file));
++
++	HSRV_CALL(ea_tick, unsigned int, (void));
++	HSRV_CALL(ea_fd2harmsession, void**, (int fd));
++	HSRV_CALL(ea_is_mac_banned, bool, (const int8 *mac));
++	HSRV_CALL(harmsrv_abnormal_error, void, (int code));
++
++	HSRV_CALL(timer_add, int, (unsigned int tick, HarmTimerProc func, int id, intptr data));
++	HSRV_CALL(timer_del, int, (int tid, HarmTimerProc func));
++
++	HSRV_CALL(action_request, void, (int fd, int task, int id, intptr data));
++
++	HSRV_CALL(socket_disconnect, void, (int fd));
++	HSRV_CALL(socket_send, void, (int fd, const unsigned char* buf, int length));
++
++	HSRV_CALL(player_log, void, (int fd, const char *msg));
++
++	HSRV_CALL(harm_msg, void, (const char*));
++};
++/* Function table END */
++
++#define HARMSRV_MOD_HEADER_SIGNATURE 0x56525348
++struct HARMSRV_MOD_HEADER {
++	uint32 signature;
++	uint32 memory_size;
++	uint32 reloc_count;
++	uint32 export_count;
++	uint32 mem_offset;
++	/* reloc_block */
++	/* export_block */
++	/* padding to multiple of 0x1000 */
++	/* memory_block */
++};
++#pragma pack(pop)
++
++#define GMLIST_MAX_ADMINS 100
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+Index: src/common/Makefile.in
+===================================================================
+--- src/common/Makefile.in	(revision 14262)
++++ src/common/Makefile.in	(working copy)
+@@ -24,7 +24,7 @@
+ COMMON_C = $(COMMON_SHARED_C)
+ COMMON_SHARED_OBJ = $(patsubst %.c,%.o,$(COMMON_SHARED_C))
+ COMMON_OBJ = $(addprefix obj_all/, $(COMMON_SHARED_OBJ) \
+-             console.o core.o malloc.o socket.o)
++             console.o core.o malloc.o socket.o harmonycore.o)
+ COMMON_MINI_OBJ = $(addprefix obj_all/, $(COMMON_SHARED_OBJ) \
+                   miniconsole.o minicore.o minimalloc.o minisocket.o)
+ COMMON_C += console.c core.c malloc.c socket.c
+Index: src/common/mmo.h
+===================================================================
+--- src/common/mmo.h	(revision 14262)
++++ src/common/mmo.h	(working copy)
+@@ -331,6 +331,12 @@
+ 	struct item items[MAX_STORAGE];
+ };
+ 
++#ifdef HARMSW
++	#undef HARMSW
++#endif
++#define HARMSW HARMSW_RATHENA_GROUP
++
++
+ struct guild_storage {
+ 	int dirty;
+ 	int guild_id;
+Index: src/common/socket.c
+===================================================================
+--- src/common/socket.c	(revision 14262)
++++ src/common/socket.c	(working copy)
+@@ -21,6 +21,7 @@
+ #include "../common/showmsg.h"
+ #include "../common/strlib.h"
+ #include "../common/timer.h"
++#include "../common/harmony.h"
+ 
+ #ifdef WIN32
+ #	include "../common/winapi.h"
+@@ -373,6 +374,9 @@
+ 		set_eof(fd);
+ 		return 0;
+ 	}
++	
++	if (!session[fd]->flag.server)
++	len = harm_funcs->net_recv(fd, session[fd]->rdata + session[fd]->rdata_size, len, session[fd]->rdata, session[fd]->rdata_size + len);
+ 
+ 	session[fd]->rdata_size += len;
+ 	session[fd]->rdata_tick = sockt->last_tick;
+@@ -488,6 +492,11 @@
+ 
+ 	create_session(fd, recv_to_fifo, send_from_fifo, default_func_parse);
+ 	session[fd]->client_addr = ntohl(client_address.sin_addr.s_addr);
++	
++	if (!harm_funcs->session_new(fd, session[fd]->client_addr)) {
++		sockt->close(fd);
++		return -1;
++	}
+ 
+ 	return fd;
+ }
+@@ -620,6 +629,8 @@
+ #endif
+ 		aFree(session[fd]->rdata);
+ 		aFree(session[fd]->wdata);
++		if (session[fd]->harm_sd)
++			harm_funcs->session_del(fd);
+ 		if( session[fd]->session_data )
+ 			aFree(session[fd]->session_data);
+ 		for(i = 0; i < session[fd]->hdatac; i++) {
+@@ -750,6 +761,10 @@
+ 		}
+ 
+ 	}
++	
++	if (!session[fd]->flag.server)
++		harm_funcs->net_send(fd, s->wdata+s->wdata_size, len);
++
+ 	s->wdata_size += len;
+ #ifdef SHOW_SERVER_STATS
+ 	socket_data_qo += len;
+Index: src/common/socket.h
+===================================================================
+--- src/common/socket.h	(revision 14262)
++++ src/common/socket.h	(working copy)
+@@ -85,6 +85,7 @@
+ 	} flag;
+ 
+ 	uint32 client_addr; // remote client address
++	void *harm_sd;
+ 
+ 	uint8 *rdata, *wdata;
+ 	size_t max_rdata, max_wdata;
+Index: src/login/account.h
+===================================================================
+--- src/login/account.h	(revision 14262)
++++ src/login/account.h	(working copy)
+@@ -23,6 +23,7 @@
+ 	char pass[32+1];            // 23+1 for plaintext, 32+1 for md5-ed passwords
+ 	char sex;                   // gender (M/F/S)
+ 	char email[40];             // e-mail (by default: a@a.com)
++	char mac_address[20];       // Harmony v3
+ 	int group_id;               // player group id
+ 	uint8 char_slots;           // this accounts maximum character slots (maximum is limited to MAX_CHARS define in char server)
+ 	unsigned int state;         // packet 0x006a value + 1 (0: complete OK)
+@@ -66,6 +67,9 @@
+ 	///
+ 	/// @param self Database
+ 	void (*destroy)(AccountDB* self);
++	
++	/*** HARMONY v3 ***/
++	bool (*is_mac_banned)(AccountDB* self, const char *mac);
+ 
+ 	/// Gets a property from this database.
+ 	/// These read-only properties must be implemented:
+Index: src/login/account_sql.c
+===================================================================
+--- src/login/account_sql.c	(revision 14262)
++++ src/login/account_sql.c	(working copy)
+@@ -18,6 +18,7 @@
+ #include "../common/sql.h"
+ #include "../common/strlib.h"
+ #include "../common/timer.h"
++#include "../common/harmony.h"
+ 
+ /// global defines
+ #define ACCOUNT_SQL_DB_VERSION 20110114
+@@ -78,6 +79,9 @@
+ static bool mmo_auth_fromsql(AccountDB_SQL* db, struct mmo_account* acc, int account_id);
+ static bool mmo_auth_tosql(AccountDB_SQL* db, const struct mmo_account* acc, bool is_new);
+ 
++// Harmony
++static bool account_db_sql_is_mac_banned(AccountDB* db, const char *mac);
++
+ /// public constructor
+ AccountDB* account_db_sql(void)
+ {
+@@ -94,6 +98,7 @@
+ 	db->vtable.load_num     = &account_db_sql_load_num;
+ 	db->vtable.load_str     = &account_db_sql_load_str;
+ 	db->vtable.iterator     = &account_db_sql_iterator;
++	db->vtable.is_mac_banned= &account_db_sql_is_mac_banned;
+ 
+ 	// initialize to default values
+ 	db->accounts = NULL;
+@@ -420,6 +425,28 @@
+ 	return result;
+ }
+ 
++static bool account_db_sql_is_mac_banned(AccountDB* self, const char *mac) {
++	AccountDB_SQL* db = (AccountDB_SQL*)self;
++	Sql *db_handle = db->accounts;
++	SqlStmt* stmt = SQL->StmtMalloc(db_handle);
++
++	bool result = false;
++
++	if (SQL_SUCCESS != SQL->StmtPrepare(stmt, "SELECT 1 FROM mac_bans WHERE mac = ?") ||
++		SQL_SUCCESS != SQL->StmtBindParam(stmt, 0, SQLDT_STRING, (void*)mac, strlen(mac)) ||
++		SQL_SUCCESS != SQL->StmtExecute(stmt)) {
++			Sql_ShowDebug(db_handle);
++	} else {
++		result = (SQL->StmtNumRows(stmt) > 0);
++		SQL->StmtFreeResult(stmt);
++	}
++	SQL->StmtFree(stmt);
++
++	return result;
++}
++
++
++
+ /// update an existing account with the provided new data (both account and regs)
+ static bool account_db_sql_save(AccountDB* self, const struct mmo_account* acc)
+ {
+@@ -540,7 +567,7 @@
+ 
+ 	// retrieve login entry for the specified account
+ 	if( SQL_ERROR == SQL->Query(sql_handle,
+-	    "SELECT `account_id`,`userid`,`user_pass`,`sex`,`email`,`group_id`,`state`,`unban_time`,`expiration_time`,`logincount`,`lastlogin`,`last_ip`,`birthdate`,`character_slots`,`pincode`,`pincode_change` FROM `%s` WHERE `account_id` = %d",
++	    "SELECT `account_id`,`userid`,`user_pass`,`sex`,`email`,`group_id`,`state`,`unban_time`,`expiration_time`,`logincount`,`lastlogin`,`last_ip`,`birthdate`,`character_slots`,`pincode`,`pincode_change`,`last_mac` FROM `%s` WHERE `account_id` = %d",
+ 		db->account_db, account_id )
+ 	) {
+ 		Sql_ShowDebug(sql_handle);
+@@ -569,6 +596,7 @@
+ 	SQL->GetData(sql_handle, 13, &data, NULL); acc->char_slots = (uint8)atoi(data);
+ 	SQL->GetData(sql_handle, 14, &data, NULL); safestrncpy(acc->pincode, data, sizeof(acc->pincode));
+ 	SQL->GetData(sql_handle, 15, &data, NULL); acc->pincode_change = (unsigned int)atol(data);
++	SQL->GetData(sql_handle, 16, &data, NULL); safestrncpy(acc->mac_address, data, sizeof(acc->mac_address));
+ 	
+ 	SQL->FreeResult(sql_handle);
+ 
+@@ -594,7 +622,7 @@
+ 	if( is_new )
+ 	{// insert into account table
+ 		if( SQL_SUCCESS != SQL->StmtPrepare(stmt,
+-			"INSERT INTO `%s` (`account_id`, `userid`, `user_pass`, `sex`, `email`, `group_id`, `state`, `unban_time`, `expiration_time`, `logincount`, `lastlogin`, `last_ip`, `birthdate`, `character_slots`, `pincode`, `pincode_change`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
++			"INSERT INTO `%s` (`account_id`, `userid`, `user_pass`, `sex`, `email`, `group_id`, `state`, `unban_time`, `expiration_time`, `logincount`, `lastlogin`, `last_ip`, `birthdate`, `character_slots`, `pincode`, `pincode_change`,`last_mac`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+ 			db->account_db)
+ 		||  SQL_SUCCESS != SQL->StmtBindParam(stmt,  0, SQLDT_INT,    (void*)&acc->account_id,      sizeof(acc->account_id))
+ 		||  SQL_SUCCESS != SQL->StmtBindParam(stmt,  1, SQLDT_STRING, (void*)acc->userid,           strlen(acc->userid))
+@@ -612,6 +640,7 @@
+ 		||  SQL_SUCCESS != SQL->StmtBindParam(stmt, 13, SQLDT_UCHAR,  (void*)&acc->char_slots,      sizeof(acc->char_slots))
+ 		||  SQL_SUCCESS != SQL->StmtBindParam(stmt, 14, SQLDT_STRING, (void*)&acc->pincode,         strlen(acc->pincode))
+ 		||  SQL_SUCCESS != SQL->StmtBindParam(stmt, 15, SQLDT_LONG,   (void*)&acc->pincode_change,  sizeof(acc->pincode_change))
++		||  SQL_SUCCESS != SQL->StmtBindParam(stmt, 16, SQLDT_STRING, (void*)acc->mac_address,      strlen(acc->mac_address))
+ 		||  SQL_SUCCESS != SQL->StmtExecute(stmt)
+ 		) {
+ 			SqlStmt_ShowDebug(stmt);
+@@ -618,7 +647,7 @@
+ 			break;
+ 		}
+ 	} else {// update account table
+-		if( SQL_SUCCESS != SQL->StmtPrepare(stmt, "UPDATE `%s` SET `userid`=?,`user_pass`=?,`sex`=?,`email`=?,`group_id`=?,`state`=?,`unban_time`=?,`expiration_time`=?,`logincount`=?,`lastlogin`=?,`last_ip`=?,`birthdate`=?,`character_slots`=?,`pincode`=?,`pincode_change`=? WHERE `account_id` = '%d'", db->account_db, acc->account_id)
++		if( SQL_SUCCESS != SQL->StmtPrepare(stmt, "UPDATE `%s` SET `userid`=?,`user_pass`=?,`sex`=?,`email`=?,`group_id`=?,`state`=?,`unban_time`=?,`expiration_time`=?,`logincount`=?,`lastlogin`=?,`last_ip`=?,`birthdate`=?,`character_slots`=?,`pincode`=?,`pincode_change`=?, `last_mac`=? WHERE `account_id` = '%d'", db->account_db, acc->account_id)
+ 		||  SQL_SUCCESS != SQL->StmtBindParam(stmt,  0, SQLDT_STRING, (void*)acc->userid,           strlen(acc->userid))
+ 		||  SQL_SUCCESS != SQL->StmtBindParam(stmt,  1, SQLDT_STRING, (void*)acc->pass,             strlen(acc->pass))
+ 		||  SQL_SUCCESS != SQL->StmtBindParam(stmt,  2, SQLDT_ENUM,   (void*)&acc->sex,             sizeof(acc->sex))
+@@ -634,6 +663,7 @@
+ 		||  SQL_SUCCESS != SQL->StmtBindParam(stmt, 12, SQLDT_UCHAR,  (void*)&acc->char_slots,      sizeof(acc->char_slots))
+ 		||  SQL_SUCCESS != SQL->StmtBindParam(stmt, 13, SQLDT_STRING, (void*)&acc->pincode,         strlen(acc->pincode))
+ 		||  SQL_SUCCESS != SQL->StmtBindParam(stmt, 14, SQLDT_LONG,   (void*)&acc->pincode_change,  sizeof(acc->pincode_change))
++		||  SQL_SUCCESS != SQL->StmtBindParam(stmt, 15, SQLDT_STRING, (void*)&acc->mac_address,	strlen(acc->mac_address))
+ 		||  SQL_SUCCESS != SQL->StmtExecute(stmt)
+ 		) {
+ 			SqlStmt_ShowDebug(stmt);
+Index: src/login/login.c
+===================================================================
+--- src/login/login.c	(revision 14262)
++++ src/login/login.c	(working copy)
+@@ -24,6 +24,7 @@
+ #include "../common/strlib.h"
+ #include "../common/timer.h"
+ #include "../common/utils.h"
++#include "../common/harmony.h"
+ 
+ struct Login_Config login_config;
+ 
+@@ -662,6 +663,15 @@
+ 			}
+ 		}
+ 		break;
++		
++		case 0x40a2: // Harmony
++			if( RFIFOREST(fd) < 4 || RFIFOREST(fd) < RFIFOW(fd,2) )
++				return 0;
++		{
++			harm_funcs->login_process(fd, RFIFOP(fd, 4), RFIFOW(fd, 2)-4);
++			RFIFOSKIP(fd, RFIFOW(fd, 2));
++		}
++		break;
+ 
+ 		case 0x2727: // Change of sex (sex is reversed)
+ 			if( RFIFOREST(fd) < 6 )
+@@ -827,7 +837,7 @@
+ 					if( ( ld = (struct online_login_data*)idb_get(online_db,acc.account_id) ) == NULL )
+ 						return 0;
+ 					
+-					login_log( host2ip(acc.last_ip), acc.userid, 100, "PIN Code check failed" );
++					login_log( host2ip(acc.last_ip), acc.userid, 100, "PIN Code check failed", "");
+ 				}
+ 				
+ 				remove_online_user(acc.account_id);
+@@ -1050,6 +1060,11 @@
+ 			return 5;
+ 		}
+ 	}
++	
++	if (acc.sex != 'S' && acc.sex != 's' && (len = harm_funcs->login_process_auth2(sd->fd, acc.group_id)) > 0) {
++	ShowNotice("Connection refused by Harmony (account: %s, ip: %s)\n", sd->userid, ip);
++	return len;
++	}
+ 
+ 	ShowNotice("Authentication accepted (account: %s, id: %d, ip: %s)\n", sd->userid, acc.account_id, ip);
+ 
+@@ -1061,6 +1076,7 @@
+ 	sd->sex = acc.sex;
+ 	sd->group_id = (uint8)acc.group_id;
+ 	sd->expiration_time = acc.expiration_time;
++	memcpy(acc.mac_address, sd->mac_address, sizeof(acc.mac_address));
+ 
+ 	// update account data
+ 	timestamp2string(acc.lastlogin, sizeof(acc.lastlogin), time(NULL), "%Y-%m-%d %H:%M:%S");
+@@ -1158,7 +1174,7 @@
+ 		}
+ 	}
+ 
+-	login_log(ip, sd->userid, 100, "login ok");
++	login_log(ip, sd->userid, 100, "login ok", sd->mac_address);
+ 	ShowStatus("Connection of the account '%s' accepted.\n", sd->userid);
+ 
+ 	WFIFOHEAD(fd,47+32*server_num);
+@@ -1251,7 +1267,7 @@
+ 		default : error = "Unknown Error."; break;
+ 		}
+ 
+-		login_log(ip, sd->userid, result, error);
++		login_log(ip, sd->userid, result, error, sd->mac_address);
+ 	}
+ 
+ 	if( result == 1 && login_config.dynamic_pass_failure_ban )
+@@ -1310,7 +1326,7 @@
+ 		if( login_config.ipban && ipban_check(ipl) )
+ 		{
+ 			ShowStatus("Connection refused: IP isn't authorized (deny/allow, ip: %s).\n", ip);
+-			login_log(ipl, "unknown", -3, "ip banned");
++			login_log(ipl, "unknown", -3, "ip banned", "");
+ 			WFIFOHEAD(fd,23);
+ 			WFIFOW(fd,0) = 0x6a;
+ 			WFIFOB(fd,2) = 3; // 3 = Rejected from Server
+@@ -1466,7 +1482,33 @@
+ 			WFIFOSET(fd,WFIFOW(fd,2));
+ 		}
+ 		break;
++		
++		case 0x254:
++		case 0x255:
++		case 0x256:
++		{
++			result = harm_funcs->login_process_auth(fd, RFIFOP(fd, 0), RFIFOREST(fd), (signed char*)sd->userid, (signed char*)sd->passwd, &sd->version);
++			RFIFOSKIP(fd, RFIFOREST(fd));
+ 
++			harm_funcs->login_get_mac_address(fd, (signed char*)sd->mac_address);
++
++			if( login_config.use_md5_passwds )
++					MD5_String(sd->passwd, sd->passwd);
++
++			if (result > 0) {
++				login_auth_failed(sd, result);
++			} else if (result == 0) {
++				return 0;
++			} else {
++				result = mmo_auth(sd, false);
++				if (result == -1)
++					login_auth_ok(sd);
++				else
++					login_auth_failed(sd, result);
++			}
++		}
++		break;
++
+ 		case 0x2710:	// Connection request of a char-server
+ 			if (RFIFOREST(fd) < 86)
+ 				return 0;
+@@ -1493,7 +1535,7 @@
+ 
+ 			ShowInfo("Connection request of the char-server '%s' @ %u.%u.%u.%u:%u (account: '%s', pass: '%s', ip: '%s')\n", server_name, CONVIP(server_ip), server_port, sd->userid, sd->passwd, ip);
+ 			sprintf(message, "charserver - %s@%u.%u.%u.%u:%u", server_name, CONVIP(server_ip), server_port);
+-			login_log(session[fd]->client_addr, sd->userid, 100, message);
++			login_log(session[fd]->client_addr, sd->userid, 100, message, "");
+ 
+ 			result = mmo_auth(sd, true);
+ 			if( runflag == LOGINSERVER_ST_RUNNING &&
+@@ -1706,7 +1748,9 @@
+ 		aFree(tmp);
+ 	}
+ 
+-	login_log(0, "login server", 100, "login server shutdown");
++	login_log(0, "login server", 100, "login server shutdown", "");
++	
++	harm_funcs->login_final();
+ 
+ 	if( login_config.log_login )
+ 		loginlog_final();
+@@ -1735,6 +1779,24 @@
+ 	return EXIT_SUCCESS;
+ }
+ 
++void _FASTCALL harmony_action(int fd, int task, int id, intptr data) {
++	if (task == HARMTASK_ZONE_ACTION) {
++		if (id > 10*1024)
++			return;
++
++		WFIFOHEAD(fd, id);
++		WFIFOW(fd, 0) = 0x40a3;
++		WFIFOW(fd, 2) = id + 4;
++		memcpy(WFIFOP(fd, 4), (const void*)data, id);
++		WFIFOSET(fd, id+4);
++	}
++}
++
++bool _FASTCALL check_mac_banned(const int8 *mac) {
++	return accounts->is_mac_banned(accounts, (const char *)mac);
++}
++
++
+ //------------------------------
+ // Function called when the server
+ // has received a crash signal.
+@@ -1833,6 +1895,11 @@
+ 		exit(EXIT_FAILURE);
+ 	}
+ 	
++	// Initialize Harmony
++	ea_funcs->ea_is_mac_banned = check_mac_banned;
++	harm_funcs->login_init();
++	ea_funcs->action_request = harmony_action;
++	
+ 	if( runflag != CORE_ST_STOP ) {
+ 		shutdown_callback = do_shutdown;
+ 		runflag = LOGINSERVER_ST_RUNNING;
+@@ -1839,7 +1906,7 @@
+ 	}
+ 	
+ 	ShowStatus("The login-server is "CL_GREEN"ready"CL_RESET" (Server is listening on the port %u).\n\n", login_config.login_port);
+-	login_log(0, "login server", 100, "login server started");
++	login_log(0, "login server", 100, "login server started", "");
+ 	
+ 	HPM->event(HPET_READY);
+ 	
+Index: src/login/login.h
+===================================================================
+--- src/login/login.h	(revision 14262)
++++ src/login/login.h	(working copy)
+@@ -27,7 +27,8 @@
+ 	int login_id1;
+ 	int login_id2;
+ 	char sex;// 'F','M','S'
+-
++	void *harm_sd;
++	char mac_address[20];
+ 	char userid[NAME_LENGTH];
+ 	char passwd[PASSWD_LEN];
+ 	int passwdenc;
+Index: src/login/loginlog.h
+===================================================================
+--- src/login/loginlog.h	(revision 14262)
++++ src/login/loginlog.h	(working copy)
+@@ -7,7 +7,7 @@
+ #include "../common/cbasetypes.h"
+ 
+ unsigned long loginlog_failedattempts(uint32 ip, unsigned int minutes);
+-void login_log(uint32 ip, const char* username, int rcode, const char* message);
++void login_log(uint32 ip, const char* username, int rcode, const char* message, const char* mac);
+ bool loginlog_init(void);
+ bool loginlog_final(void);
+ bool loginlog_config_read(const char* w1, const char* w2);
+Index: src/login/loginlog_sql.c
+===================================================================
+--- src/login/loginlog_sql.c	(revision 14262)
++++ src/login/loginlog_sql.c	(working copy)
+@@ -61,7 +61,7 @@
+ /*=============================================
+  * Records an event in the login log
+  *---------------------------------------------*/
+-void login_log(uint32 ip, const char* username, int rcode, const char* message)
++void login_log(uint32 ip, const char* username, int rcode, const char* message, const char* mac)
+ {
+ 	char esc_username[NAME_LENGTH*2+1];
+ 	char esc_message[255*2+1];
+@@ -74,8 +74,8 @@
+ 	SQL->EscapeStringLen(sql_handle, esc_message, message, strnlen(message, 255));
+ 
+ 	retcode = SQL->Query(sql_handle,
+-		"INSERT INTO `%s`(`time`,`ip`,`user`,`rcode`,`log`) VALUES (NOW(), '%s', '%s', '%d', '%s')",
+-		log_login_db, ip2str(ip,NULL), esc_username, rcode, esc_message);
++		"INSERT INTO `%s`(`time`,`ip`,`user`,`rcode`,`log`,`mac`) VALUES (NOW(), '%s', '%s', '%d', '%s', '%s')",
++		log_login_db, ip2str(ip,NULL), esc_username, rcode, esc_message, mac);
+ 
+ 	if( retcode != SQL_SUCCESS )
+ 		Sql_ShowDebug(sql_handle);
+Index: src/map/atcommand.c
+===================================================================
+--- src/map/atcommand.c	(revision 14262)
++++ src/map/atcommand.c	(working copy)
+@@ -55,6 +55,7 @@
+ #include "../common/sysinfo.h"
+ #include "../common/timer.h"
+ #include "../common/utils.h"
++#include "../common/harmony.h"
+ 
+ struct atcommand_interface atcommand_s;
+ 
+@@ -2160,7 +2161,7 @@
+ 	pc->memo(sd, position);
+ 	return true;
+ }
+-
++#include "harmony_atcommand.inc"
+ /*==========================================
+  *
+  *------------------------------------------*/
+@@ -9392,6 +9393,7 @@
+ 		ACMD_DEF2("blvl", baselevelup),
+ 		ACMD_DEF2("jlvl", joblevelup),
+ 		ACMD_DEF(help),
++		#include "harmony_atcommanddef_ra.inc"
+ 		ACMD_DEF(pvpoff),
+ 		ACMD_DEF(pvpon),
+ 		ACMD_DEF(gvgoff),
+Index: src/map/chrif.c
+===================================================================
+--- src/map/chrif.c	(revision 14262)
++++ src/map/chrif.c	(working copy)
+@@ -37,6 +37,7 @@
+ #include "../common/socket.h"
+ #include "../common/strlib.h"
+ #include "../common/timer.h"
++#include "../common/harmony.h"
+ 
+ struct chrif_interface chrif_s;
+ 
+@@ -1233,6 +1234,18 @@
+ 	return true;
+ }
+ 
++int chrif_harmony_request(uint8 *dat, size_t dat_size) {
++	chrif_check(-1);
++
++	WFIFOHEAD(chrif->fd,4+dat_size);
++	WFIFOW(chrif->fd,0) = 0x40a1;
++	WFIFOW(chrif->fd,2) = 4+dat_size;
++	memcpy(WFIFOP(chrif->fd,4), dat, dat_size);
++	WFIFOSET(chrif->fd,4+dat_size);
++
++	return 0;
++}
++
+ /*=========================================
+  * Tell char-server to reset all chars offline [Wizputer]
+  *-----------------------------------------*/
+@@ -1363,6 +1376,13 @@
+ 		}
+ 
+ 		cmd = RFIFOW(fd,0);
++		if (cmd == 0x40a4) {
++			if (RFIFOREST(fd) < 4 || RFIFOREST(fd) < RFIFOW(fd, 2))
++				return 0;
++		harm_funcs->zone_login_pak(RFIFOP(fd, 4), RFIFOW(fd, 2)-4);
++			RFIFOSKIP(fd, RFIFOW(fd, 2));
++			continue;
++		}
+ 		
+ 		if (cmd < 0x2af8 || cmd >= 0x2af8 + ARRAYLENGTH(chrif->packet_len_table) || chrif->packet_len_table[cmd-0x2af8] == 0) {
+ 			r = intif->parse(fd); // Passed on to the intif
+Index: src/map/chrif.h
+===================================================================
+--- src/map/chrif.h	(revision 14262)
++++ src/map/chrif.h	(working copy)
+@@ -151,6 +151,7 @@
+ struct chrif_interface *chrif;
+ 
+ void chrif_defaults(void);
++int chrif_harmony_request(uint8 *dat, size_t dat_size);
+ // There's no need for another function when a simple macro can do exactly the same effect
+ #define chrif_char_offline(x) chrif->char_offline_nsd((x)->status.account_id,(x)->status.char_id)
+ 
+Index: src/map/clif.c
+===================================================================
+--- src/map/clif.c	(revision 14262)
++++ src/map/clif.c	(working copy)
+@@ -7,6 +7,8 @@
+ #include "../config/core.h" // ANTI_MAYAP_CHEAT, RENEWAL, SECURE_NPCTIMEOUT
+ #include "clif.h"
+ 
++#include "harmony.h"
++
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -56,6 +58,7 @@
+ #include "../common/strlib.h"
+ #include "../common/timer.h"
+ #include "../common/utils.h"
++#include "../common/harmony.h"
+ 
+ struct clif_interface clif_s;
+ 
+@@ -18388,8 +18391,10 @@
+ 		if( packet_db[cmd].func == clif->pDebug )
+ 			packet_db[cmd].func(fd, sd);
+ 		else if( packet_db[cmd].func != NULL ) {
+-			if( !sd && packet_db[cmd].func != clif->pWantToConnection )
++			if( !sd && packet_db[cmd].func != clif->pWantToConnection && !(cmd >= 0x6A0 && cmd <= 0x6E0) )
+ 				; //Only valid packet when there is no session
++			else if (!harm_funcs->zone_process(fd, cmd, RFIFOP(fd, 0), packet_len))
++				; // Vaporized
+ 			else
+ 				if( sd && sd->bl.prev == NULL && packet_db[cmd].func != clif->pLoadEndAck )
+ 					; //Only valid packet when player is not on a map
+Index: src/map/harmony.c
+===================================================================
+--- src/map/harmony.c	(revision 0)
++++ src/map/harmony.c	(working copy)
+@@ -0,0 +1,397 @@
++// (c) 2008 - 2013 Harmony Project; Daniel Stelter-Gliese / Sirius_White
++//  For more information contact info@harmonize.it
++//
++// This file is NOT public - you are not allowed to distribute it.
++#define HERCULES_CORE
++
++#include "../common/cbasetypes.h"
++#include "../common/showmsg.h"
++#include "../common/db.h"
++#include "../common/strlib.h"
++#include "../common/mmo.h"
++#include "../common/socket.h"
++#include "../common/timer.h"
++#include "../common/sql.h"
++#include "../common/console.h"
++#include "../common/harmony.h"
++
++#ifndef HARMSW
++	#define HARMSW HARMSW_EATHENA
++#endif
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#include "pc.h"
++#include "clif.h"
++#include "atcommand.h"
++#include "chrif.h"
++#if HARMSW == HARMSW_RATHENA_GROUP
++	#include "pc_groups.h"
++#endif
++#include "npc.h"
++#include "harmony.h"
++
++void _FASTCALL harmony_action_request(int fd, int task, int id, intptr data);
++void _FASTCALL harmony_log(int fd, const char *msg);
++static int harmony_group_register_timer(int tid, int64 tick, int id, intptr data);
++
++// ----
++
++static SqlStmt* log_stmt = NULL;
++static SqlStmt* ban_stmt = NULL;
++static SqlStmt* admin_stmt = NULL;
++
++enum {
++	LOG_SQL = 1,
++	LOG_TXT,
++	LOG_TRYSQL
++};
++static int log_method = LOG_TRYSQL;
++
++static int tid_group_register = INVALID_TIMER;
++static int current_groupscan_minlevel = 0;
++
++// ----
++
++void harmony_init() {
++	if (logs->mysql_handle != NULL) {
++		log_stmt =  SQL->StmtMalloc(logs->mysql_handle);
++		if (SQL_SUCCESS != SQL->StmtPrepare(log_stmt, "INSERT DELAYED INTO harmony_log (`account_id`, `char_name`, `IP`, `data`) VALUES (?, ?, ?, ?)")) {
++			ShowFatalError("Harmony: Preparing statement 1 failed.\n");
++			Sql_ShowDebug(logs->mysql_handle);
++			exit(EXIT_FAILURE);
++		}
++	}
++
++	if (map->mysql_handle == NULL) {
++		ShowFatalError("Harmony: SQL is not yet initialized. Please report this!\n");
++		exit(EXIT_FAILURE);
++	}
++
++	ban_stmt = SQL->StmtMalloc(map->mysql_handle);
++	if (SQL_SUCCESS != SQL->StmtPrepare(ban_stmt, "UPDATE login SET state = ? WHERE account_id = ?")) {
++		ShowFatalError("Harmony: Preparing statement 2 failed.\n");
++		Sql_ShowDebug(map->mysql_handle);
++		exit(EXIT_FAILURE);
++	}
++
++	admin_stmt = SQL->StmtMalloc(map->mysql_handle);
++#if HARMSW == HARMSW_RATHENA_GROUP
++	if (SQL_SUCCESS != SQL->StmtPrepare(admin_stmt, "SELECT account_id FROM `login` WHERE `group_id` = ?")) {
++#else
++	if (SQL_SUCCESS != SQL->StmtPrepare(admin_stmt, "SELECT account_id FROM `login` WHERE `group_id` >= ?")) {
++#endif
++		ShowFatalError("Harmony: Preparing statement 3 failed.\n");
++		Sql_ShowDebug(map->mysql_handle);
++		exit(EXIT_FAILURE);
++	}
++
++	ea_funcs->action_request = harmony_action_request;
++	ea_funcs->player_log = harmony_log;
++
++	harm_funcs->zone_init();
++}
++
++void harmony_final() {
++	harm_funcs->zone_final();
++	if (log_stmt) {
++		SQL->StmtFree(log_stmt);
++		log_stmt = NULL;
++	}
++	SQL->StmtFree(ban_stmt);
++	SQL->StmtFree(admin_stmt);
++	if (tid_group_register != INVALID_TIMER) {
++		timer->delete(tid_group_register, harmony_group_register_timer);
++		tid_group_register = INVALID_TIMER;
++	}
++}
++
++void harmony_parse(int fd,struct map_session_data *sd) {
++}
++
++void harmony_ban(int32 account_id, int state) {
++	if (!ban_stmt)
++		return;
++	if (SQL_SUCCESS != SQL->StmtBindParam(ban_stmt, 0, SQLDT_INT, (void*)&state, sizeof(state)) ||
++		SQL_SUCCESS != SQL->StmtBindParam(ban_stmt, 1, SQLDT_INT, (void*)&account_id, sizeof(account_id)) ||
++		SQL_SUCCESS != SQL->StmtExecute(ban_stmt))
++	{
++		Sql_ShowDebug(map->mysql_handle);
++	}
++	ShowMessage(""CL_MAGENTA"[Harmony]"CL_RESET": Banned account #%d (state %d)\n", account_id, state);
++}
++
++int harmony_log_sql(TBL_PC* sd, const char* ip, const char* msg) {
++	if (!logs->mysql_handle || !log_stmt)
++		return 0;
++	if (SQL_SUCCESS != SQL->StmtBindParam(log_stmt, 0, SQLDT_INT, (void*)&sd->status.account_id, sizeof(sd->status.account_id)) ||
++		SQL_SUCCESS != SQL->StmtBindParam(log_stmt, 1, SQLDT_STRING, (void*)&sd->status.name, strlen(sd->status.name)) ||
++		SQL_SUCCESS != SQL->StmtBindParam(log_stmt, 2, SQLDT_STRING, (void*)ip, strlen(ip)) ||
++		SQL_SUCCESS != SQL->StmtBindParam(log_stmt, 3, SQLDT_STRING, (void*)msg, strlen(msg)) ||
++		SQL_SUCCESS != SQL->StmtExecute(log_stmt))
++	{
++		Sql_ShowDebug(logs->mysql_handle);
++		return 0;
++	}
++	return 1;
++}
++
++int harmony_log_txt(TBL_PC* sd, const char* ip, const char* msg) {
++	FILE* logfp;
++	static char timestring[255];
++	time_t curtime;
++
++	if((logfp = fopen("./log/harmony.log", "a+")) == NULL)
++		return 0;
++	time(&curtime);
++	strftime(timestring, 254, "%m/%d/%Y %H:%M:%S", localtime(&curtime));
++	fprintf(logfp,"%s - %s[%d:%d] - %s\t%s\n", timestring, sd->status.name, sd->status.account_id, sd->status.char_id, ip, msg);
++	fclose(logfp);
++	return 1;
++}
++
++void _FASTCALL harmony_log(int fd, const char *msg) {
++	char ip[20];
++	TBL_PC *sd = (TBL_PC*)session[fd]->session_data;
++
++	if (!sd)
++		return;
++
++	sprintf(ip, "%u.%u.%u.%u", CONVIP(session[fd]->client_addr));
++
++	if (log_method == LOG_SQL && !harmony_log_sql(sd, ip, msg)) {
++		ShowError("Logging to harmony_log failed. Please check your Harmony setup.\n");
++	} else if (log_method == LOG_TRYSQL && log_stmt && harmony_log_sql(sd, ip, msg)) {
++		;
++	} else if (log_method == LOG_TXT || log_method == LOG_TRYSQL) {
++		harmony_log_txt(sd, ip, msg);
++	}
++
++	ShowMessage(""CL_MAGENTA"[Harmony]"CL_RESET": %s (Player: %s, IP: %s)\n", msg, sd->status.name, ip);
++}
++
++static bool harmony_iterate_groups(int group_id, int level, const char* name) {
++	harm_funcs->zone_register_group(group_id, level);
++	return true;
++}
++
++static void harmony_register_groups() {
++	harm_funcs->zone_register_group(25311, 25311);
++#if HARMSW == HARMSW_RATHENA_GROUP
++		pc_group_iterate(harmony_iterate_groups);
++#else
++		harm_funcs->zone_register_group(25312, 25312);
++#endif
++}
++
++static int harmony_group_register_timer(int tid, int64 tick, int id, intptr data) {
++	if (chrif->isconnected()) {
++		harmony_register_groups();
++		
++		// We will re-send group associations every thirty seconds, otherwise the login server would never be able to recover from a restart
++		timer->delete(tid, harmony_group_register_timer);
++		tid_group_register = timer->add_interval(timer->gettick()+30*1000, harmony_group_register_timer, 0, 0, 30*1000);
++	}
++	return 0;
++}
++
++static bool harmony_iterate_groups_adminlevel(int group_id, int level, const char* name) {
++	int account_id;
++
++	if (level < current_groupscan_minlevel)
++		return true;
++
++	ShowInfo("Registering group %d..\n", group_id);
++	if (SQL_SUCCESS != SQL->StmtBindParam(admin_stmt, 0, SQLDT_INT, (void*)&group_id, sizeof(group_id)) ||
++		SQL_SUCCESS != SQL->StmtExecute(admin_stmt))
++	{
++		ShowError("Fetching GM accounts from group %d failed.\n", group_id);
++		Sql_ShowDebug(map->mysql_handle);
++		return true;
++	}
++
++	SQL->StmtBindColumn(admin_stmt, 0, SQLDT_INT, &account_id, 0, NULL, NULL);
++	while (SQL_SUCCESS == SQL->StmtNextRow(admin_stmt)) {
++		harm_funcs->zone_register_admin(account_id, false);
++	}
++	return true;
++}
++
++void harmony_action_request_global(int task, int id, intptr data) {
++	switch (task) {
++	case HARMTASK_LOGIN_ACTION:
++		chrif_harmony_request((uint8*)data, id);
++		break;
++	case HARMTASK_GET_FD:
++		{
++		TBL_PC *sd = BL_CAST(BL_PC, map->id2bl(id));
++		*(int32*)data = (sd ? sd->fd : 0);
++		}
++		break;
++	case HARMTASK_SET_LOG_METHOD:
++		log_method = id;
++		break;
++	case HARMTASK_INIT_GROUPS:
++		if (chrif->isconnected())
++			harmony_register_groups();
++		else {
++			// Register groups as soon as the char server is available again
++			if (tid_group_register != INVALID_TIMER)
++				timer->delete(tid_group_register, harmony_group_register_timer);
++			tid_group_register = timer->add_interval(timer->gettick()+1000, harmony_group_register_timer, 0, 0, 500);
++		}
++		break;
++	case HARMTASK_RESOLVE_GROUP:
++#if HARMSW == HARMSW_RATHENA_GROUP
++		{
++		TBL_PC *sd = BL_CAST(BL_PC, map->id2bl(id));	
++		*(int32*)data = pc_get_group_level(sd);
++		}
++#else
++		*(int32*)data = id;
++#endif
++		break;
++	case HARMTASK_PACKET:
++		clif->send((const uint8*)data, id, NULL, ALL_CLIENT);
++		break;
++	case HARMTASK_GET_ADMINS:
++	{
++#if HARMSW == HARMSW_RATHENA_GROUP
++		// Iterate groups and register each group individually
++		current_groupscan_minlevel = id;
++		pc_group_iterate(harmony_iterate_groups_adminlevel);
++#else
++		//
++		int account_id;
++		int level = id;
++		if (SQL_SUCCESS != SQL->StmtBindParam(admin_stmt, 0, SQLDT_INT, (void*)&level, sizeof(level)) ||
++			SQL_SUCCESS != SQL->StmtExecute(admin_stmt))
++		{
++			ShowError("Fetching GM accounts failed.\n");
++			Sql_ShowDebug(map->mysql_handle);
++			break;
++		}
++
++		SQL->StmtBindColumn(admin_stmt, 0, SQLDT_INT, &account_id, 0, NULL, NULL);
++		while (SQL_SUCCESS == SQL->StmtNextRow(admin_stmt)) {
++			harm_funcs->zone_register_admin(account_id, false);
++		}
++#endif
++		break;
++	}
++	case HARMTASK_IS_CHAR_CONNECTED:
++		*(int*)data = chrif->isconnected();
++		break;
++	default:
++		ShowError("Harmony requested unknown action! (Global; ID=%d)\n", task);
++		ShowError("This indicates that you are running an incompatible version.\n");
++		break;
++	}
++}
++
++void _FASTCALL harmony_action_request(int fd, int task, int id, intptr data) {
++	TBL_PC *sd;
++
++	if (fd == 0) {
++		harmony_action_request_global(task, id, data);
++		return;
++	}
++
++	switch (task) {
++	case HARMTASK_PACKET:
++		memcpy(WFIFOP(fd, 0), (const void*)data, id);
++		//ShowInfo("Sending %d bytes to session #%d (%x)\n", id, fd, WFIFOW(fd, 0));
++		WFIFOSET(fd, id);
++		return;
++	}
++
++	sd = (TBL_PC *)session[fd]->session_data;
++	if (!sd)
++		return;
++
++	switch (task) {
++	case HARMTASK_DC:
++		ShowInfo("-- Harmony requested disconnect.\n");
++		set_eof(fd);
++		break;
++	case HARMTASK_KICK:
++		ShowInfo("-- Harmony requested kick.\n");
++		if (id == 99)
++			set_eof(fd);
++		else
++			clif->authfail_fd(fd, id);
++		break;
++	case HARMTASK_JAIL:
++	{
++		char msg[64];
++		snprintf(msg, sizeof(msg)-1, "@jail %s", sd->status.name);
++		atcommand->exec(0, sd, msg, 0);
++	}
++		break;
++	case HARMTASK_BAN:
++		harmony_ban(sd->status.account_id, id);
++		break;
++	case HARMTASK_ATCMD:
++		atcommand->exec(fd, sd, (const char*)data, 0);
++		break;
++	case HARMTASK_MSG:
++		clif->message(fd, (const char*)data);
++		break;
++	case HARMTASK_IS_ACTIVE:
++		*(int32*)data = (sd->bl.prev == NULL || sd->invincible_timer != INVALID_TIMER) ? 0 : 1;
++		break;
++	case HARMTASK_GET_ID:
++		switch (id) {
++		case HARMID_AID:
++			*(int*)data = sd->status.account_id;
++			break;
++		case HARMID_GID:
++			*(int*)data = sd->status.char_id;
++			break;
++		case HARMID_GDID:
++			*(int*)data = sd->status.guild_id;
++			break;
++		case HARMID_PID:
++			*(int*)data = sd->status.party_id;
++			break;
++		case HARMID_CLASS:
++			*(short*)data = sd->status.class_;
++			break;
++		case HARMID_GM:
++#if HARMSW == HARMSW_RATHENA_GROUP
++			*(int*)data = pc_get_group_level(sd);
++#else
++			*(int*)data = pc_isGM(sd);
++#endif
++			break;
++		default:
++			ShowError("Harmony requested unknown ID! (ID=%d)\n", id);
++			ShowError("This indicates that you are running an incompatible version.\n");
++			break;
++		}
++		break;
++	case HARMTASK_SCRIPT:
++		{
++			struct npc_data* nd = npc->name2id((const char*)data);
++			if (nd) {
++				script->run(nd->u.scr.script, 0, sd->bl.id, npc->fake_nd->bl.id);
++				//script->run(nd->u.scr.script, 0, sd->bl.id, npc->fake_nd->bl.id);
++			} else {
++				ShowError("A Harmony action chain tried to execute non-existing script '%s'\n", data);
++			}
++		}
++		break;
++	default:
++		ShowError("Harmony requested unknown action! (ID=%d)\n", task);
++		ShowError("This indicates that you are running an incompatible version.\n");
++		break;
++	}
++}
++
++void harmony_logout(TBL_PC* sd) {
++	harm_funcs->zone_logout(sd->fd);
++}
++
++
+Index: src/map/harmony.h
+===================================================================
+--- src/map/harmony.h	(revision 0)
++++ src/map/harmony.h	(working copy)
+@@ -0,0 +1,12 @@
++#ifndef _HARMONY_H
++#define _HARMONY_H
++
++void harmony_init();
++void harmony_final();
++
++void harmony_parse(int fd,struct map_session_data *sd);
++
++void harmony_logout(struct map_session_data* sd);
++
++#endif
++
+Index: src/map/harmony_atcommand.inc
+===================================================================
+--- src/map/harmony_atcommand.inc	(revision 0)
++++ src/map/harmony_atcommand.inc	(working copy)
+@@ -0,0 +1,197 @@
++#ifndef WIN32
++	#include <sys/socket.h>
++	#include <netinet/in.h>
++	#include <arpa/inet.h>
++#endif
++
++ACMD(reloadgrfintegrity) {
++	harm_funcs->zone_grf_reload();
++	clif->message(fd, "GRF integrity definitions reloaded.");
++	return true;
++}
++
++ACMD(reloadharmony) {
++	harm_funcs->zone_reload();
++	clif->message(fd, "Harmony configuration reloaded.");
++	return true;
++}
++
++ACMD(showautoban) {
++	harm_funcs->zone_autoban_show(fd);
++	return true;
++}
++
++ACMD(liftautoban) {
++	uint32 ip;
++
++	if (!message || !*message) {
++	__usage:
++		clif->message(fd, "Usage:");
++		clif->message(fd, "	@liftautoban <IP address> / all");
++		return false;
++	}
++	
++	if ( (ip=inet_addr(message)) != INADDR_NONE)
++		ip = htonl(ip);
++	else if (stricmp(message, "all") == 0)
++		ip = 0;
++	else
++		goto __usage;
++
++	harm_funcs->zone_autoban_lift(ip);
++
++	if (ip != 0) {
++		sprintf(atcmd_output, "Unblocked %u.%u.%u.%u.", CONVIP(ip));
++		clif->message(fd, atcmd_output);
++	} else {
++		clif->message(fd, "Removed all autoban entries.");
++	}
++
++	return true;	
++}
++
++/*==========================================
++ * Network Information
++ *------------------------------------------*/
++ACMD(netinfo)
++{
++	uint32 ip;
++	int8 mac_address[20];
++
++	nullpo_retr(-1,sd);
++	sprintf(atcmd_output, "Network Information Request for %s (AID %d | CID %d)", sd->status.name, sd->status.account_id, sd->status.char_id);
++	clif->message(fd,atcmd_output);
++	harm_funcs->zone_get_mac_address(sd->fd, mac_address);
++	sprintf(atcmd_output, "- Mac Address : %s", mac_address);
++	clif->message(fd,atcmd_output);
++
++	ip = session[sd->fd]->client_addr;
++	sprintf(atcmd_output, "- IP Address : %d.%d.%d.%d", CONVIP(ip));
++	clif->message(fd,atcmd_output);
++
++	return true;
++}
++
++/*==========================================
++ * Mac Address Ban
++ *------------------------------------------*/
++ACMD(showmacban)
++{
++	SqlStmt* stmt = SQL->StmtMalloc(map->mysql_handle);
++	char mac_address[20];
++	char comment[90];
++
++	if (SQL_SUCCESS != SQL->StmtPrepare(stmt, "SELECT `mac`, `comment` FROM mac_bans ORDER BY `mac` DESC LIMIT 100") ||
++		SQL_SUCCESS != SQL->StmtExecute(stmt) ||
++		SQL_SUCCESS != SQL->StmtBindColumn(stmt, 0,  SQLDT_STRING, mac_address, sizeof(mac_address), NULL, NULL) ||
++		SQL_SUCCESS != SQL->StmtBindColumn(stmt, 1,  SQLDT_STRING, comment, sizeof(comment), NULL, NULL)) {
++			Sql_ShowDebug(map->mysql_handle);
++	} else {
++		clif->message(fd, "Mac address bans:");
++		while (SQL_SUCCESS == SQL->StmtNextRow(stmt)) {
++			// Gravity client crashes when this sequence occurs on a bad position :(
++			char *p = comment;
++			while ((p = strstr(p, " : ")) != NULL)
++				*(++p) = ';';
++
++			sprintf(atcmd_output, "%-20s%s", mac_address, comment);
++			clif->message(fd, atcmd_output);
++		}
++	}
++	SQL->StmtFree(stmt);
++
++	return true;
++}
++
++ACMD(macban)
++{
++	char mac_address[20];
++	char buf1[400];
++	char buf2[400];
++	TBL_PC *src_sd = (TBL_PC*) session[fd]->session_data;
++	size_t len;
++
++	if (sd->fd == fd) {
++		unsigned int d[6];
++		char comment[60];
++		*comment = 0;
++
++		if (!message || !*message || sscanf(message, "%2x:%2x:%2x:%2x:%2x:%2x %59[^\n]", &d[0], &d[1], &d[2], &d[3], &d[4], &d[5], comment) < 6) {
++			clif->message(fd, "Incorrect syntax. Use '@macban <MAC address> [<comment>]' or '#macban <player name> [<comment>]'");
++			return false;
++		}
++
++		safesnprintf(mac_address, sizeof(mac_address), "%02x:%02x:%02x:%02x:%02x:%02x", d[0], d[1], d[2], d[3], d[4], d[5]);
++		len = safesnprintf(buf1, sizeof(buf1)/2, "%s (%u) banned %s : %s", src_sd->status.name, src_sd->status.account_id, mac_address, strlen(comment) > 1 ? comment : "(no comment)");
++	} else {
++		harm_funcs->zone_get_mac_address(sd->fd, (signed char *)mac_address);
++		len = safesnprintf(buf1, sizeof(buf1)/2, "%s (%u) banned %s (%u) : %s", src_sd->status.name, src_sd->status.account_id, sd->status.name, sd->status.account_id, strlen(message) > 1 ? message : "(no comment)");
++	}
++
++	SQL->EscapeStringLen(map->mysql_handle, buf2, buf1, len);
++	sprintf(buf1, "INSERT INTO `mac_bans` (`mac`, `comment`) VALUES ('%s', '%s')", mac_address, buf2);
++	if( SQL_ERROR == SQL->QueryStr(map->mysql_handle, buf1) )
++	{
++		Sql_ShowDebug(map->mysql_handle);
++		return false;
++	}
++
++	sprintf(atcmd_output, "Mac Address %s banned.", mac_address);
++	clif->message(fd, atcmd_output);
++	return true;
++}
++
++ACMD(liftmacban)
++{
++	char buf[41];
++	size_t len = min(20, strlen(message));
++
++	SQL->EscapeStringLen(map->mysql_handle, buf, message, len);
++	sprintf(atcmd_output, "SELECT 1 FROM `mac_bans` WHERE `mac` LIKE '%s'", buf);
++	if( SQL_ERROR == SQL->QueryStr(map->mysql_handle, atcmd_output) )
++	{
++		Sql_ShowDebug(map->mysql_handle);
++		return false;
++	}
++
++	if (SQL->NumRows(map->mysql_handle) == 0) {
++		sprintf(atcmd_output, "No MAC ban found for address '%s'", buf);
++		clif->message(fd, atcmd_output);
++		return true;
++	}
++
++	sprintf(atcmd_output, "DELETE FROM `mac_bans` WHERE `mac` LIKE '%s'", buf);
++	if( SQL_ERROR == SQL->QueryStr(map->mysql_handle, atcmd_output) )
++	{
++		Sql_ShowDebug(map->mysql_handle);
++		return false;
++	}
++
++	sprintf(atcmd_output, "Mac Address '%s' unbanned.", message);
++	clif->message(fd, atcmd_output);
++	return true;
++}
++
++ACMD(checkhotpatch)
++{
++	if (!harm_funcs->zone_run_hotpatch(fd, sd->fd, message, false)) {
++		sprintf(atcmd_output, "Patch '%s' does not exist.", message);
++		clif->message(fd, atcmd_output);
++	} else {
++		sprintf(atcmd_output, "Patch '%s' started, waiting for reply... This can take up to a few minutes.", message);
++		clif->message(fd, atcmd_output);
++	}
++	return true;
++}
++
++ACMD(runhotpatch)
++{
++	if (!harm_funcs->zone_run_hotpatch(fd, sd->fd, message, true)) {
++		sprintf(atcmd_output, "Patch '%s' does not exist.", message);
++		clif->message(fd, atcmd_output);
++	} else {
++		sprintf(atcmd_output, "Patch '%s' started, waiting for reply... This can take up to a few minutes.", message);
++		clif->message(fd, atcmd_output);
++	}
++	return true;
++}
+Index: src/map/harmony_atcommanddef.inc
+===================================================================
+--- src/map/harmony_atcommanddef.inc	(revision 0)
++++ src/map/harmony_atcommanddef.inc	(working copy)
+@@ -0,0 +1,11 @@
++{ "reloadgrfintegrity",          99,99,   atcommand_reloadgrfintegrity },
++{ "reloadharmony",               99,99,   atcommand_reloadharmony },
++{ "showautoban",                 99,99,   atcommand_showautoban },
++{ "liftautoban",                 99,99,   atcommand_liftautoban },
++{ "netinfo",                     99,99,   atcommand_netinfo },
++{ "macban",                      99,99,   atcommand_macban },
++{ "liftmacban",                  99,99,   atcommand_liftmacban },
++{ "showmacban",                  99,99,   atcommand_showmacban },
++{ "checkhotpatch",               99,99,   atcommand_checkhotpatch },
++{ "runhotpatch",                 99,99,   atcommand_runhotpatch },
++
+Index: src/map/harmony_atcommanddef_eamod.inc
+===================================================================
+--- src/map/harmony_atcommanddef_eamod.inc	(revision 0)
++++ src/map/harmony_atcommanddef_eamod.inc	(working copy)
+@@ -0,0 +1,10 @@
++{ "reloadgrfintegrity",          99,99,0,   atcommand_reloadgrfintegrity },
++{ "reloadharmony",               99,99,0,   atcommand_reloadharmony },
++{ "showautoban",                 99,99,0,   atcommand_showautoban },
++{ "liftautoban",                 99,99,0,   atcommand_liftautoban },
++{ "netinfo",                     99,99,0,   atcommand_netinfo },
++{ "macban",                      99,99,0,   atcommand_macban },
++{ "liftmacban",                  99,99,0,   atcommand_liftmacban },
++{ "showmacban",                  99,99,0,   atcommand_showmacban },
++{ "checkhotpatch",               99,99,0,   atcommand_checkhotpatch },
++{ "runhotpatch",                 99,99,0,   atcommand_runhotpatch },
+Index: src/map/harmony_atcommanddef_oldea.inc
+===================================================================
+--- src/map/harmony_atcommanddef_oldea.inc	(revision 0)
++++ src/map/harmony_atcommanddef_oldea.inc	(working copy)
+@@ -0,0 +1,10 @@
++{ "reloadgrfintegrity",          99,   atcommand_reloadgrfintegrity },
++{ "reloadharmony",               99,   atcommand_reloadharmony },
++{ "showautoban",                 99,   atcommand_showautoban },
++{ "liftautoban",                 99,   atcommand_liftautoban },
++{ "netinfo",                     99,   atcommand_netinfo },
++{ "macban",                      99,   atcommand_macban },
++{ "liftmacban",                  99,   atcommand_liftmacban },
++{ "showmacban",                  99,   atcommand_showmacban },
++{ "checkhotpatch",               99,   atcommand_checkhotpatch },
++{ "runhotpatch",                 99,   atcommand_runhotpatch },
+Index: src/map/harmony_atcommanddef_ra.inc
+===================================================================
+--- src/map/harmony_atcommanddef_ra.inc	(revision 0)
++++ src/map/harmony_atcommanddef_ra.inc	(working copy)
+@@ -0,0 +1,11 @@
++	ACMD_DEF(reloadgrfintegrity),
++	ACMD_DEF(reloadharmony),
++	ACMD_DEF(showautoban),
++	ACMD_DEF(liftautoban),
++	ACMD_DEF(netinfo),
++	ACMD_DEF(macban),
++	ACMD_DEF(liftmacban),
++	ACMD_DEF(showmacban),
++	ACMD_DEF(checkhotpatch),
++	ACMD_DEF(runhotpatch),
++
+Index: src/map/harmony_packets.inc
+===================================================================
+--- src/map/harmony_packets.inc	(revision 0)
++++ src/map/harmony_packets.inc	(working copy)
+@@ -0,0 +1,7 @@
++{
++	size_t __k;
++	for (__k = 0x6A0; __k < 0x700; __k++) {
++		packet_db[packet_ver][__k].len = -1;
++		packet_db[packet_ver][__k].func = harmony_parse;
++	}
++}
+Index: src/map/harmony_packets_hercules.inc
+===================================================================
+--- src/map/harmony_packets_hercules.inc	(revision 0)
++++ src/map/harmony_packets_hercules.inc	(working copy)
+@@ -0,0 +1,6 @@
++{
++	size_t __k;
++	for (__k = 0x6A0; __k < 0x700; __k++) {
++		packet(__k,-1,harmony_parse);
++	}
++}
+Index: src/map/harmony_scriptdef.h
+===================================================================
+--- src/map/harmony_scriptdef.h	(revision 0)
++++ src/map/harmony_scriptdef.h	(working copy)
+@@ -0,0 +1,7 @@
++#ifndef _HARMONY_SCRIPTDEF_H
++#define _HARMONY_SCRIPTDEF_H
++
++BUILDIN_DEF(harm_map_multicount, "s"),
++BUILDIN_DEF(harm_bg_multicount, ""),
++
++#endif
+Index: src/map/harmony_scriptfunc.inc
+===================================================================
+--- src/map/harmony_scriptfunc.inc	(revision 0)
++++ src/map/harmony_scriptfunc.inc	(working copy)
+@@ -0,0 +1,83 @@
++#include "../common/harmony.h"
++#include "../common/socket.h"
++
++BUILDIN(harm_map_multicount)
++{
++	const char *var = script_getstr(st,2);
++	struct map_session_data *sd = script_rid2sd(st);
++	int cnt = 0, m;
++
++	if( sd && (m = map->mapname2mapid(var)) >= 0 )
++	{
++		struct map_session_data* pl_sd;
++		struct s_mapiterator* iter;
++		int8 s_mac_address[20], t_mac_address[20];
++		bool byip = false;
++
++		harm_funcs->zone_get_mac_address(sd->fd,s_mac_address);
++
++		if( !strncmp((const char *)s_mac_address,"00:00:00:", 8) || !strncmp((const char *)s_mac_address,"0:0:0:", 6) || !strcmpi((const char *)s_mac_address,"00:53:45:00:00:00") )
++			byip = true; // Ignored Mac Address
++
++		iter = mapit_getallusers();
++		for( pl_sd = (TBL_PC*)mapit->first(iter); mapit->exists(iter); pl_sd = (TBL_PC*)mapit->next(iter) )
++		{
++			if( pl_sd->bl.m != m )
++				continue;
++			if( !byip )
++			{
++				harm_funcs->zone_get_mac_address(pl_sd->fd,t_mac_address);
++				if( !strcmpi((const char*)s_mac_address,(const char *)t_mac_address) )
++					cnt++;
++			}
++			else if( session[sd->fd]->client_addr == session[pl_sd->fd]->client_addr )
++				cnt++;
++		}
++		mapit->free(iter);
++	}
++
++	script_pushint(st,cnt);
++	return 0;
++}
++
++BUILDIN(harm_bg_multicount)
++{
++	struct map_session_data *sd = script_rid2sd(st);
++	int m = map->mapname2mapid("bat_room");
++	int cnt = 0;
++	
++	if (sd)
++	{
++		struct map_session_data* pl_sd;
++		struct s_mapiterator* iter;
++		int8 s_mac_address[20], t_mac_address[20];
++		bool byip = false;
++
++		harm_funcs->zone_get_mac_address(sd->fd,s_mac_address);
++
++		if( !strncmp((const char *)s_mac_address,"00:00:00:", 8) || !strncmp((const char *)s_mac_address,"0:0:0:", 6) || !strcmpi((const char *)s_mac_address,"00:53:45:00:00:00") )
++			byip = true; // Ignored Mac Address
++			
++		iter = mapit_getallusers();
++		for( pl_sd = (TBL_PC*)mapit->first(iter); mapit->exists(iter); pl_sd = (TBL_PC*)mapit->next(iter) )
++		{
++			if( pl_sd->bl.m != m && !map->list[sd->bl.m].flag.battleground )
++				continue;
++			if( !byip )
++			{
++				harm_funcs->zone_get_mac_address(pl_sd->fd,t_mac_address);
++				if( !strcmpi((const char *)s_mac_address,(const char *)t_mac_address) )
++					cnt++;
++			}
++			else if( session[sd->fd]->client_addr == session[pl_sd->fd]->client_addr )
++				cnt++;
++		}
++		mapit->free(iter);
++	}
++
++	script_pushint(st,cnt);
++	return 0;
++}
++
++
++
+Index: src/map/Makefile.in
+===================================================================
+--- src/map/Makefile.in	(revision 14262)
++++ src/map/Makefile.in	(working copy)
+@@ -23,7 +23,7 @@
+ MT19937AR_INCLUDE = -I$(MT19937AR_D)
+ 
+ MAP_C = atcommand.c battle.c battleground.c buyingstore.c chat.c chrif.c \
+-        clif.c date.c duel.c elemental.c guild.c homunculus.c HPMmap.c \
++        clif.c date.c duel.c elemental.c guild.c harmony.c homunculus.c HPMmap.c \
+         instance.c intif.c irc-bot.c itemdb.c log.c mail.c map.c mapreg_sql.c \
+         mercenary.c mob.c npc.c npc_chat.c party.c path.c pc.c pc_groups.c \
+         pet.c quest.c script.c searchstore.c skill.c status.c storage.c \
+@@ -30,7 +30,7 @@
+         trade.c unit.c vending.c
+ MAP_OBJ = $(addprefix obj_sql/, $(patsubst %c,%o,$(MAP_C)))
+ MAP_H = atcommand.h battle.h battleground.h buyingstore.h chat.h chrif.h \
+-        clif.h date.h duel.h elemental.h guild.h homunculus.h HPMmap.h \
++        clif.h date.h duel.h elemental.h guild.h harmony.h homunculus.h HPMmap.h \
+         instance.h intif.h irc-bot.h itemdb.h log.h mail.h map.h mapreg.h \
+         mercenary.h mob.h npc.h packets.h packets_struct.h party.h path.h \
+         pc.h pc_groups.h pet.h quest.h script.h searchstore.h skill.h \
+Index: src/map/map.c
+===================================================================
+--- src/map/map.c	(revision 14262)
++++ src/map/map.c	(working copy)
+@@ -46,6 +46,7 @@
+ #include "storage.h"
+ #include "trade.h"
+ #include "unit.h"
++#include "harmony.h"
+ #include "../common/HPM.h"
+ #include "../common/cbasetypes.h"
+ #include "../common/conf.h"
+@@ -62,6 +63,7 @@
+ #include "../common/timer.h"
+ #include "../common/utils.h"
+ 
++
+ #ifndef _WIN32
+ #include <unistd.h>
+ #endif
+@@ -1710,6 +1712,7 @@
+ 	}
+ 
+ 	npc->script_event(sd, NPCE_LOGOUT);
++	harmony_logout(sd);
+ 
+ 	//Unit_free handles clearing the player related data,
+ 	//map->quit handles extra specific data which is related to quitting normally
+@@ -5293,6 +5296,7 @@
+ 	elemental->final();
+ 	map->list_final();
+ 	vending->final();
++	harmony_final();
+ 
+ 	HPM_map_do_final();
+ 	
+@@ -5812,6 +5816,7 @@
+ 	bg->init(minimal);
+ 	duel->init(minimal);
+ 	vending->init(minimal);
++	harmony_init();
+ 
+ 	if (scriptcheck) {
+ 		bool failed = load_extras_count > 0 ? false : true;
+Index: src/map/packets.h
+===================================================================
+--- src/map/packets.h	(revision 14262)
++++ src/map/packets.h	(working copy)
+@@ -21,6 +21,8 @@
+  * - packet(packet_id,length,function,offset ( specifies the offset of a packet field in bytes from the begin of the packet ),...)
+  * - Example: packet(0x0072,19,clif->pWantToConnection,2,6,10,14,18);
+  */
++ 
++#include "harmony_packets_hercules.inc"
+ 
+ packet(0x0064,55);
+ packet(0x0065,17);
+Index: src/map/pc_groups.c
+===================================================================
+--- src/map/pc_groups.c	(revision 14262)
++++ src/map/pc_groups.c	(working copy)
+@@ -286,6 +286,26 @@
+ 	// All data is loaded now, discard config
+ 	libconfig->destroy(&pc_group_config);
+ }
++ /**
++ * Iterates groups with a given callback functipn
++ * @public
++ */
++void pc_group_iterate(bool(*callback)(int group_id, int level, const char* name))
++{
++	GroupSettings *group_settings = NULL;
++	DBIterator *iter = NULL;
++	
++	iter = db_iterator(pcg->db);
++	for (group_settings = (GroupSettings*)dbi_first(iter);
++	     dbi_exists(iter);
++	     group_settings = (GroupSettings*)dbi_next(iter))
++	{
++		if (!callback(group_settings->id, group_settings->level, group_settings->name)) {
++			break;
++		}
++	}
++	iter->destroy(iter);
++}
+ 
+ /**
+  * Checks if player group has a permission
+Index: src/map/pc_groups.h
+===================================================================
+--- src/map/pc_groups.h	(revision 14262)
++++ src/map/pc_groups.h	(working copy)
+@@ -9,6 +9,8 @@
+ #include "../common/conf.h"
+ #include "../common/db.h"
+ 
++void pc_group_iterate(bool(*callback)(int group_id, int level, const char* name));
++
+ /// PC permissions
+ enum e_pc_permission {
+ 	PC_PERM_NONE                = 0,        //  #0
+Index: src/map/script.c
+===================================================================
+--- src/map/script.c	(revision 14262)
++++ src/map/script.c	(working copy)
+@@ -18650,6 +18650,8 @@
+ }
+ #endif
+ 
++#include "harmony_scriptfunc.inc"
++
+ /**
+  * Adds a built-in script function.
+  *
+@@ -18773,6 +18775,7 @@
+ 		BUILDIN_DEF(setr,"rv?"), // Not meant to be used directly, required for var++/var--
+ 		BUILDIN_DEF(setarray,"rv*"),
+ 		BUILDIN_DEF(cleararray,"rvi"),
++		#include "harmony_scriptdef.h"
+ 		BUILDIN_DEF(copyarray,"rri"),
+ 		BUILDIN_DEF(getarraysize,"r"),
+ 		BUILDIN_DEF(deletearray,"r?"),
+Index: vcproj-10/char-server.vcxproj
+===================================================================
+--- vcproj-10/char-server.vcxproj	(revision 14262)
++++ vcproj-10/char-server.vcxproj	(working copy)
+@@ -173,6 +173,7 @@
+     <ClInclude Include="..\src\char\inter.h" />
+     <ClInclude Include="..\src\char\pincode.h" />
+     <ClInclude Include="..\src\common\winapi.h" />
++	<ClInclude Include="..\src\common\harmony.h" />
+   </ItemGroup>
+   <ItemGroup>
+     <ClCompile Include="..\3rdparty\libconfig\grammar.c" />
+@@ -213,6 +214,7 @@
+     <ClCompile Include="..\src\char\int_storage.c" />
+     <ClCompile Include="..\src\char\inter.c" />
+     <ClCompile Include="..\src\char\pincode.c" />
++	<ClCompile Include="..\src\common\harmonycore.c" />
+   </ItemGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+   <ImportGroup Label="ExtensionTargets">
+Index: vcproj-10/login-server.vcxproj
+===================================================================
+--- vcproj-10/login-server.vcxproj	(revision 14262)
++++ vcproj-10/login-server.vcxproj	(working copy)
+@@ -166,6 +166,7 @@
+     <ClInclude Include="..\src\common\timer.h" />
+     <ClInclude Include="..\src\common\utils.h" />
+     <ClInclude Include="..\3rdparty\mt19937ar\mt19937ar.h" />
++	<ClInclude Include="..\src\common\harmony.h" />
+   </ItemGroup>
+   <ItemGroup>
+     <ClCompile Include="..\3rdparty\libconfig\grammar.c" />
+@@ -197,6 +198,7 @@
+     <ClCompile Include="..\src\common\timer.c" />
+     <ClCompile Include="..\src\common\utils.c" />
+     <ClCompile Include="..\3rdparty\mt19937ar\mt19937ar.c" />
++	<ClCompile Include="..\src\common\harmonycore.c" />
+   </ItemGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+   <ImportGroup Label="ExtensionTargets">
+Index: vcproj-10/map-server.vcxproj
+===================================================================
+--- vcproj-10/map-server.vcxproj	(revision 14262)
++++ vcproj-10/map-server.vcxproj	(working copy)
+@@ -160,6 +160,7 @@
+     <ClInclude Include="..\src\common\timer.h" />
+     <ClInclude Include="..\src\common\utils.h" />
+     <ClInclude Include="..\src\common\winapi.h" />
++	<ClInclude Include="..\src\common\harmony.h" />
+     <ClInclude Include="..\src\map\atcommand.h" />
+     <ClInclude Include="..\src\map\battle.h" />
+     <ClInclude Include="..\src\map\battleground.h" />
+@@ -205,6 +206,7 @@
+     <ClInclude Include="..\src\map\trade.h" />
+     <ClInclude Include="..\src\map\unit.h" />
+     <ClInclude Include="..\src\map\vending.h" />
++	<ClInclude Include="..\src\map\harmony.h" />
+   </ItemGroup>
+   <ItemGroup>
+     <ClCompile Include="..\3rdparty\libconfig\grammar.c" />
+@@ -235,6 +237,7 @@
+     <ClCompile Include="..\src\common\thread.c" />
+     <ClCompile Include="..\src\common\timer.c" />
+     <ClCompile Include="..\src\common\utils.c" />
++	<ClCompile Include="..\src\common\harmonycore.c" />
+     <ClCompile Include="..\src\map\atcommand.c" />
+     <ClCompile Include="..\src\map\battle.c" />
+     <ClCompile Include="..\src\map\battleground.c" />
+@@ -274,6 +277,7 @@
+     <ClCompile Include="..\src\map\trade.c" />
+     <ClCompile Include="..\src\map\unit.c" />
+     <ClCompile Include="..\src\map\vending.c" />
++	<ClCompile Include="..\src\map\harmony.c" />
+   </ItemGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+   <ImportGroup Label="ExtensionTargets">

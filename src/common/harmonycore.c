@@ -1,10 +1,9 @@
-// (c) 2008 - 2011 Harmony Project; Daniel Stelter-Gliese / Sirius_White
-//
-//  - white@siriuswhite.de
-//  - ICQ #119-153
-//  - MSN msn@siriuswhite.de
+// (c) 2008 - 2013 Harmony Project; Daniel Stelter-Gliese / Sirius_White
+//  For more information contact info@harmonize.it
 //
 // This file is NOT public - you are not allowed to distribute it.
+#define HERCULES_CORE
+
 #include "../common/cbasetypes.h"
 #include "../common/showmsg.h"
 #include "../common/db.h"
@@ -12,8 +11,8 @@
 #include "../common/socket.h"
 #include "../common/timer.h"
 #include "../common/malloc.h"
-#include "../common/mmo.h"
 #include "../common/harmony.h"
+#include "../common/console.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +29,27 @@
 #endif
 
 #define HARMONY_USE_EA_MEMMGR
+
+/* ind start */
+#ifdef WIN32
+#include "../common/winapi.h" // GetTickCount()
+#else
+#include <unistd.h>
+#include <sys/time.h> // struct timeval, gettimeofday()
+#endif
+
+
+static unsigned int hTick(void) {
+#if defined(WIN32)
+	return GetTickCount();
+#else
+	struct timeval tval;
+	gettimeofday(&tval, NULL);
+	return tval.tv_sec * 1000 + tval.tv_usec / 1000;
+#endif
+}
+/* ind end */
+
 
 // ---
 
@@ -75,6 +95,10 @@ void* _FASTCALL crt_fopen(const char* file, const char *mode);
 int   _FASTCALL crt_fclose(void* file);
 char* _FASTCALL crt_fgets(char* buf, int max_count, void* file);
 size_t _FASTCALL crt_fread(void* ptr, size_t size, size_t count, void* file);
+
+time_t _FASTCALL crt_time(time_t* timer);
+int _FASTCALL crt_rand(void);
+void _FASTCALL crt_srand(unsigned int seed);
 
 
 // ---
@@ -122,6 +146,11 @@ void harmony_core_init() {
 	ea_funcs->fclose = crt_fclose;
 	ea_funcs->fread = crt_fread;
 	ea_funcs->fgets = crt_fgets;
+#if HARMSRV_VERSION >= 30312
+	ea_funcs->time = crt_time;
+	ea_funcs->rand = crt_rand;
+	ea_funcs->srand = crt_srand;
+#endif
 
 	ea_funcs->harm_msg = harm_msg;
 	ea_funcs->harmsrv_abnormal_error = harmony_abnormal_start;
@@ -132,7 +161,7 @@ void harmony_core_init() {
 	ea_funcs->socket_disconnect = ea_socket_disconnect;
 	ea_funcs->socket_send = ea_socket_send;
 
-	harm_timer = idb_alloc(DB_OPT_BASE);
+	harm_timer = idb_alloc(DB_OPT_RELEASE_DATA);
 
 	module_init();
 	harm_funcs->init();
@@ -208,7 +237,7 @@ static bool harmony_load_module(const char *path) {
 		mod_exports = strdb_alloc(DB_OPT_BASE, 50);
 		for (i = 0; i < head->export_count; i++) {
 			uint32 offset = *(uint32*)(buf + pos);
-			strdb_put(mod_exports, (int8*)buf+pos+5, buf + head->mem_offset + offset);
+			strdb_put(mod_exports, (char*)buf+pos+5, buf + head->mem_offset + offset);
 			pos += 4 + 1 + *(uint8*)(buf + pos + 4) + 1;
 		}
 	}
@@ -253,6 +282,18 @@ size_t _FASTCALL crt_fread(void* ptr, size_t size, size_t count, void* file) {
 	return fread(ptr, size, count, (FILE*)file);
 }
 
+time_t _FASTCALL crt_time(time_t* t) {
+	return time(t);
+}
+
+int _FASTCALL crt_rand(void) {
+	return rand();
+}
+
+void _FASTCALL crt_srand(unsigned int seed) {
+	srand(seed);
+}
+
 void _FASTCALL ea_socket_disconnect(int fd) {
 	session[fd]->flag.eof = 1;
 }
@@ -271,39 +312,39 @@ struct GccBinaryCompatibilityDoesNotSeemToExist {
 	HarmTimerProc func;
 };
 
-int ea_timer_wrap(int tid, unsigned int tick, int id, intptr data) {
+int ea_timer_wrap(int tid, int64 tick, int id, intptr data) {
 	struct GccBinaryCompatibilityDoesNotSeemToExist *e = (struct GccBinaryCompatibilityDoesNotSeemToExist *)data;
 	
-	e->func(tid, tick, e->id, e->data);
+	e->func(tid, hTick(), e->id, e->data);
 	idb_remove(harm_timer, tid);
-	aFree(e);
 
 	return 0;
 }
 
 int _FASTCALL ea_timer_add(unsigned int tick, HarmTimerProc func, int id, intptr data) {
-#if !defined(__64BIT__)
-	return _athena_add_timer(tick, (TimerFunc)func, id, data);
-#else
+//#if !defined(__64BIT__)
+//	return timer->add(tick, (TimerFunc)func, id, data);
+//#else
 	struct GccBinaryCompatibilityDoesNotSeemToExist *e;
 	int tid;
+	int64 new_tick = ( tick - hTick() ) + timer->gettick();
 
 	CREATE(e, struct GccBinaryCompatibilityDoesNotSeemToExist, 1);
 
-	tid = _athena_add_timer(tick, ea_timer_wrap, 0, (intptr)e);
+	tid = timer->add(new_tick, ea_timer_wrap, 0, (intptr)e);
 	e->data = data;
 	e->id = id;
 	e->func = func;
 	idb_put(harm_timer, tid, e);
 
 	return tid;
-#endif
+//#endif
 }
 
 int _FASTCALL ea_timer_del(int tid, HarmTimerProc func) {
-#if !defined(__64BIT__)
-	return _athena_delete_timer(tid, (TimerFunc)func);
-#else
+//#if !defined(__64BIT__)
+//	return timer->delete(tid, (TimerFunc)func);
+//#else
 	struct GccBinaryCompatibilityDoesNotSeemToExist *e = (struct GccBinaryCompatibilityDoesNotSeemToExist *)idb_get(harm_timer, tid);
 
 	if (!e) {
@@ -317,16 +358,15 @@ int _FASTCALL ea_timer_del(int tid, HarmTimerProc func) {
 	}
 
 	idb_remove(harm_timer, tid);
-	aFree(e);
 
-	return _athena_delete_timer(tid, ea_timer_wrap);
-#endif
+	return timer->delete(tid, (TimerFunc)ea_timer_wrap);
+//#endif
 }
 
 /* --- */
 
 unsigned int _FASTCALL ea_tick(void) {
-	return _athena_gettick();
+	return hTick();
 }
 
 void** _FASTCALL ea_fd2harmsession(int fd) {
@@ -345,4 +385,3 @@ static void* harmony_get_symbol(const char *name) {
 void _FASTCALL harm_msg(const char *msg) {
 	ShowMessage(""CL_MAGENTA"[Harmony]"CL_RESET": %s", msg);
 }
-

@@ -2,22 +2,24 @@
 // See the LICENSE file
 // Base Author: shennetsind @ http://hercules.ws
 
-#include "../common/cbasetypes.h"
-#include "../common/malloc.h"
-#include "../common/strlib.h"
-#include "../common/showmsg.h"
-#include "../common/socket.h"
-#include "../common/timer.h"
-#include "../common/random.h"
+#define HERCULES_CORE
 
-#include "map.h"
-#include "pc.h"
-#include "clif.h"
 #include "irc-bot.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "clif.h"
+#include "map.h"
+#include "pc.h"
+#include "../common/cbasetypes.h"
+#include "../common/malloc.h"
+#include "../common/random.h"
+#include "../common/showmsg.h"
+#include "../common/socket.h"
+#include "../common/strlib.h"
+#include "../common/timer.h"
 
 //#define IRCBOT_DEBUG
 
@@ -27,9 +29,9 @@ char send_string[IRC_MESSAGE_LENGTH];
 
 /**
  * Timer callback to (re-)connect to an IRC server
- * @see iTimer->do_timer
+ * @see timer->do_timer
  */
-int irc_connect_timer(int tid, unsigned int tick, int id, intptr_t data) {
+int irc_connect_timer(int tid, int64 tick, int id, intptr_t data) {
 	struct hSockOpt opt;
 	if( ircbot->isOn || ++ircbot->fails >= 3 )
 		return 0;
@@ -37,12 +39,12 @@ int irc_connect_timer(int tid, unsigned int tick, int id, intptr_t data) {
 	opt.silent = 1;
 	opt.setTimeo = 0;
 	
-	ircbot->last_try = iTimer->gettick();
+	ircbot->last_try = timer->gettick();
 
 	if( ( ircbot->fd = make_connection(ircbot->ip,hChSys.irc_server_port,&opt) ) > 0 ){
 		session[ircbot->fd]->func_parse = ircbot->parse;
 		session[ircbot->fd]->flag.server = 1;
-		iTimer->add_timer(iTimer->gettick() + 3000, ircbot->identify_timer, 0, 0);
+		timer->add(timer->gettick() + 3000, ircbot->identify_timer, 0, 0);
 		ircbot->isOn = true;
 	}
 	return 0;
@@ -50,9 +52,9 @@ int irc_connect_timer(int tid, unsigned int tick, int id, intptr_t data) {
 
 /**
  * Timer callback to send identification commands to an IRC server
- * @see iTimer->do_timer
+ * @see timer->do_timer
  */
-int irc_identify_timer(int tid, unsigned int tick, int id, intptr_t data) {
+int irc_identify_timer(int tid, int64 tick, int id, intptr_t data) {
 	if( !ircbot->isOn )
 		return 0;
 	
@@ -61,16 +63,16 @@ int irc_identify_timer(int tid, unsigned int tick, int id, intptr_t data) {
 	sprintf(send_string, "NICK %s", hChSys.irc_nick);
 	ircbot->send(send_string);
 
-	iTimer->add_timer(iTimer->gettick() + 3000, ircbot->join_timer, 0, 0);
+	timer->add(timer->gettick() + 3000, ircbot->join_timer, 0, 0);
 	
 	return 0;
 }
 
 /**
  * Timer callback to join channels (and optionally send NickServ commands)
- * @see iTimer->do_timer
+ * @see timer->do_timer
  */
-int irc_join_timer(int tid, unsigned int tick, int id, intptr_t data) {
+int irc_join_timer(int tid, int64 tick, int id, intptr_t data) {
 	if( !ircbot->isOn )
 		return 0;
 	
@@ -119,7 +121,7 @@ int irc_parse(int fd) {
 		ircbot->isIn = false;
 		ircbot->fails = 0;
 		ircbot->ip = host2ip(hChSys.irc_server);
-		iTimer->add_timer(iTimer->gettick() + 120000, ircbot->connect_timer, 0, 0);
+		timer->add(timer->gettick() + 120000, ircbot->connect_timer, 0, 0);
       	return 0;
 	}
 	
@@ -152,7 +154,8 @@ int irc_parse(int fd) {
  *               NULL, needs to be able to fit an IRC_HOST_LENGTH long string)
  */
 void irc_parse_source(char *source, char *nick, char *ident, char *host) {
-	int i, len = strlen(source), pos = 0;
+	int i, pos = 0;
+	size_t len = strlen(source);
 	unsigned char stage = 0;
 	
 	for(i = 0; i < len; i++) {
@@ -208,7 +211,7 @@ void irc_parse_sub(int fd, char *str) {
  * @param str Command to send
  */
 void irc_send(char *str) {
-	int len = strlen(str) + 2;
+	size_t len = strlen(str) + 2;
 	if (len > IRC_MESSAGE_LENGTH-3)
 		len = IRC_MESSAGE_LENGTH-3;
 	WFIFOHEAD(ircbot->fd, len);
@@ -289,7 +292,7 @@ void irc_privmsg(int fd, char *cmd, char *source, char *target, char *msg) {
 	} else if( strcmpi(target,hChSys.irc_nick) == 0 ) {
 		ShowDebug("irc_privmsg: Received message from %s: '%s'\n", source ? source : "(null)", msg);
 #endif // IRCBOT_DEBUG
-	} else if( strcmpi(target,hChSys.irc_channel) == 0 ) {
+	} else if( msg && strcmpi(target,hChSys.irc_channel) == 0 ) {
 		char source_nick[IRC_NICK_LENGTH], source_ident[IRC_IDENT_LENGTH], source_host[IRC_HOST_LENGTH];
 
 		source_nick[0] = source_ident[0] = source_host[0] = '\0';
@@ -298,7 +301,7 @@ void irc_privmsg(int fd, char *cmd, char *source, char *target, char *msg) {
 			ircbot->parse_source(source,source_nick,source_ident,source_host);
 				
 		if( ircbot->channel ) {
-			int padding_len = strlen(ircbot->channel->name) + strlen(source_nick) + 13;
+			size_t padding_len = strlen(ircbot->channel->name) + strlen(source_nick) + 13;
 			while (1) {
 				snprintf(send_string, 150, "[ #%s ] IRC.%s : %s",ircbot->channel->name,source_nick,msg);
 				clif->chsys_msg2(ircbot->channel,send_string);
@@ -386,7 +389,7 @@ void irc_relay(char *name, const char *msg) {
 /**
  * IRC bot initializer
  */
-void irc_bot_init(void) {
+void irc_bot_init(bool minimal) {
 	/// Command handlers
 	const struct irc_func irc_func_base[] = {
 		{ "PING" , ircbot->pong },
@@ -398,6 +401,9 @@ void irc_bot_init(void) {
 	};
 	struct irc_func* function;
 	int i;
+
+	if (minimal)
+		return;
 
 	if( !hChSys.irc )
 		return;
@@ -427,8 +433,8 @@ void irc_bot_init(void) {
 	ircbot->isIn = false;
 	ircbot->isOn = false;
 	
-	iTimer->add_timer_func_list(ircbot->connect_timer, "irc_connect_timer");
-	iTimer->add_timer(iTimer->gettick() + 7000, ircbot->connect_timer, 0, 0);
+	timer->add_func_list(ircbot->connect_timer, "irc_connect_timer");
+	timer->add(timer->gettick() + 7000, ircbot->connect_timer, 0, 0);
 }
 
 /**

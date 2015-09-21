@@ -2,52 +2,70 @@
 // See the LICENSE file
 // Portions Copyright (c) Athena Dev Teams
 
-#include "../common/cbasetypes.h"
-#include "../common/mmo.h"
-#include "../common/timer.h"
-#include "../common/harmony.h"
-#include "../common/malloc.h"
-#include "../common/showmsg.h"
-#include "../common/strlib.h"
-#include "../config/core.h"
-#include "../common/HPM.h"
+#define HERCULES_CORE
+
+#include "../config/core.h" // SHOW_SERVER_STATS
+#define _H_SOCKET_C_
 #include "socket.h"
+#undef _H_SOCKET_C_
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 
+#include "../common/HPM.h"
+#include "../common/cbasetypes.h"
+#include "../common/malloc.h"
+#include "../common/mmo.h"
+#include "../common/showmsg.h"
+#include "../common/strlib.h"
+#include "../common/timer.h"
+#include "../common/harmony.h"
+
 #ifdef WIN32
-	#include "../common/winapi.h"
+#	include "../common/winapi.h"
 #else
-	#include <errno.h>
-	#include <sys/socket.h>
-	#include <netinet/in.h>
-	#include <netinet/tcp.h>
-	#include <net/if.h>
-	#include <unistd.h>
-	#include <sys/time.h>
-	#include <sys/ioctl.h>
-	#include <netdb.h>
-	#include <arpa/inet.h>
+#	include <arpa/inet.h>
+#	include <errno.h>
+#	include <net/if.h>
+#	include <netdb.h>
+#	include <netinet/in.h>
+#	include <netinet/tcp.h>
+#	include <sys/ioctl.h>
+#	include <sys/socket.h>
+#	include <sys/time.h>
+#	include <unistd.h>
 
-	#ifndef SIOCGIFCONF
-	#include <sys/sockio.h> // SIOCGIFCONF on Solaris, maybe others? [Shinomori]
-	#endif
-	#ifndef FIONBIO
-	#include <sys/filio.h> // FIONBIO on Solaris [FlavioJS]
-	#endif
+#	ifndef SIOCGIFCONF
+#		include <sys/sockio.h> // SIOCGIFCONF on Solaris, maybe others? [Shinomori]
+#	endif
+#	ifndef FIONBIO
+#		include <sys/filio.h> // FIONBIO on Solaris [FlavioJS]
+#	endif
 
-	#ifdef HAVE_SETRLIMIT
-	#include <sys/resource.h>
-	#endif
+#	ifdef HAVE_SETRLIMIT
+#		include <sys/resource.h>
+#	endif
+#endif
+
+/**
+ * Socket Interface Source
+ **/
+struct socket_interface sockt_s;
+
+#ifdef SEND_SHORTLIST
+	// Add a fd to the shortlist so that it'll be recognized as a fd that needs
+	// sending done on it.
+	void send_shortlist_add_fd(int fd);
+	// Do pending network sends (and eof handling) from the shortlist.
+	void send_shortlist_do_sends();
 #endif
 
 /////////////////////////////////////////////////////////////////////
 #if defined(WIN32)
 /////////////////////////////////////////////////////////////////////
-// windows portability layer 
+// windows portability layer
 
 typedef int socklen_t;
 
@@ -93,7 +111,7 @@ int sock2fd(SOCKET s)
 
 /// Inserts the socket into the global array of sockets.
 /// Returns a new fd associated with the socket.
-/// If there are too many sockets it closes the socket, sets an error and 
+/// If there are too many sockets it closes the socket, sets an error and
 //  returns -1 instead.
 /// Since fd 0 is reserved, it returns values in the range [1,FD_SETSIZE[.
 ///
@@ -158,19 +176,19 @@ char* sErr(int code)
 	return sbuf;
 }
 
-#define sBind(fd,name,namelen) bind(fd2sock(fd),name,namelen)
-#define sConnect(fd,name,namelen) connect(fd2sock(fd),name,namelen)
-#define sIoctl(fd,cmd,argp) ioctlsocket(fd2sock(fd),cmd,argp)
-#define sListen(fd,backlog) listen(fd2sock(fd),backlog)
-#define sRecv(fd,buf,len,flags) recv(fd2sock(fd),buf,len,flags)
-#define sSelect select
-#define sSend(fd,buf,len,flags) send(fd2sock(fd),buf,len,flags)
-#define sSetsockopt(fd,level,optname,optval,optlen) setsockopt(fd2sock(fd),level,optname,optval,optlen)
-#define sShutdown(fd,how) shutdown(fd2sock(fd),how)
-#define sFD_SET(fd,set) FD_SET(fd2sock(fd),set)
-#define sFD_CLR(fd,set) FD_CLR(fd2sock(fd),set)
-#define sFD_ISSET(fd,set) FD_ISSET(fd2sock(fd),set)
-#define sFD_ZERO FD_ZERO
+#define sBind(fd,name,namelen)                      bind(fd2sock(fd),(name),(namelen))
+#define sConnect(fd,name,namelen)                   connect(fd2sock(fd),(name),(namelen))
+#define sIoctl(fd,cmd,argp)                         ioctlsocket(fd2sock(fd),(cmd),(argp))
+#define sListen(fd,backlog)                         listen(fd2sock(fd),(backlog))
+#define sRecv(fd,buf,len,flags)                     recv(fd2sock(fd),(buf),(len),(flags))
+#define sSelect                                     select
+#define sSend(fd,buf,len,flags)                     send(fd2sock(fd),(buf),(len),(flags))
+#define sSetsockopt(fd,level,optname,optval,optlen) setsockopt(fd2sock(fd),(level),(optname),(optval),(optlen))
+#define sShutdown(fd,how)                           shutdown(fd2sock(fd),(how))
+#define sFD_SET(fd,set)                             FD_SET(fd2sock(fd),(set))
+#define sFD_CLR(fd,set)                             FD_CLR(fd2sock(fd),(set))
+#define sFD_ISSET(fd,set)                           FD_ISSET(fd2sock(fd),(set))
+#define sFD_ZERO                                    FD_ZERO
 
 /////////////////////////////////////////////////////////////////////
 #else
@@ -213,12 +231,6 @@ char* sErr(int code)
 #endif
 
 fd_set readfds;
-int fd_max;
-time_t last_tick;
-time_t stall_time = 60;
-
-uint32 addr_[16];   // ip addresses of local host (host byte order)
-int naddr_ = 0;   // # of ip addresses
 
 // Maximum packet size in bytes, which the client is able to handle.
 // Larger packets cause a buffer overflow and stack corruption.
@@ -282,8 +294,8 @@ void set_defaultparse(ParseFunc defaultparse)
  *--------------------------------------*/
 void set_nonblocking(int fd, unsigned long yes)
 {
-	// FIONBIO Use with a nonzero argp parameter to enable the nonblocking mode of socket s. 
-	// The argp parameter is zero if nonblocking is to be disabled. 
+	// FIONBIO Use with a nonzero argp parameter to enable the nonblocking mode of socket s.
+	// The argp parameter is zero if nonblocking is to be disabled.
 	if( sIoctl(fd, FIONBIO, &yes) != 0 )
 		ShowError("set_nonblocking: Failed to set socket #%d to non-blocking mode (%s) - Please report this!!!\n", fd, error_msg());
 }
@@ -329,7 +341,7 @@ void setsocketopts(int fd, struct hSockOpt *opt) {
  *--------------------------------------*/
 void set_eof(int fd)
 {
-	if( session_isActive(fd) )
+	if( sockt->session_isActive(fd) )
 	{
 #ifdef SEND_SHORTLIST
 		// Add this socket to the shortlist for eof handling.
@@ -341,15 +353,15 @@ void set_eof(int fd)
 
 int recv_to_fifo(int fd)
 {
-	int len;
+	ssize_t len;
 
-	if( !session_isActive(fd) )
+	if( !sockt->session_isActive(fd) )
 		return -1;
 
 	len = sRecv(fd, (char *) session[fd]->rdata + session[fd]->rdata_size, (int)RFIFOSPACE(fd), 0);
 
 	if( len == SOCKET_ERROR )
-	{//An exception has occured
+	{//An exception has occurred
 		if( sErrno != S_EWOULDBLOCK ) {
 			//ShowDebug("recv_to_fifo: %s, closing connection #%d\n", error_msg(), fd);
 			set_eof(fd);
@@ -362,12 +374,12 @@ int recv_to_fifo(int fd)
 		set_eof(fd);
 		return 0;
 	}
-
+	
 	if (!session[fd]->flag.server)
-		len = harm_funcs->net_recv(fd, session[fd]->rdata + session[fd]->rdata_size, len, session[fd]->rdata, session[fd]->rdata_size + len);
+	len = harm_funcs->net_recv(fd, session[fd]->rdata + session[fd]->rdata_size, len, session[fd]->rdata, session[fd]->rdata_size + len);
 
 	session[fd]->rdata_size += len;
-	session[fd]->rdata_tick = last_tick;
+	session[fd]->rdata_tick = sockt->last_tick;
 #ifdef SHOW_SERVER_STATS
 	socket_data_i += len;
 	socket_data_qi += len;
@@ -381,9 +393,9 @@ int recv_to_fifo(int fd)
 
 int send_from_fifo(int fd)
 {
-	int len;
+	ssize_t len;
 
-	if( !session_isValid(fd) )
+	if( !sockt->session_isValid(fd) )
 		return -1;
 
 	if( session[fd]->wdata_size == 0 )
@@ -392,7 +404,7 @@ int send_from_fifo(int fd)
 	len = sSend(fd, (const char *) session[fd]->wdata, (int)session[fd]->wdata_size, MSG_NOSIGNAL);
 
 	if( len == SOCKET_ERROR )
-	{//An exception has occured
+	{//An exception has occurred
 		if( sErrno != S_EWOULDBLOCK ) {
 			//ShowDebug("send_from_fifo: %s, ending connection #%d\n", error_msg(), fd);
 #ifdef SHOW_SERVER_STATS
@@ -435,8 +447,8 @@ void flush_fifo(int fd)
 void flush_fifos(void)
 {
 	int i;
-	for(i = 1; i < fd_max; i++)
-		flush_fifo(i);
+	for(i = 1; i < sockt->fd_max; i++)
+		sockt->flush_fifo(i);
 }
 
 /*======================================
@@ -470,19 +482,19 @@ int connect_client(int listen_fd) {
 
 #ifndef MINICORE
 	if( ip_rules && !connect_check(ntohl(client_address.sin_addr.s_addr)) ) {
-		do_close(fd);
+		sockt->close(fd);
 		return -1;
 	}
 #endif
 
-	if( fd_max <= fd ) fd_max = fd + 1;
+	if( sockt->fd_max <= fd ) sockt->fd_max = fd + 1;
 	sFD_SET(fd,&readfds);
 
 	create_session(fd, recv_to_fifo, send_from_fifo, default_func_parse);
 	session[fd]->client_addr = ntohl(client_address.sin_addr.s_addr);
-
+	
 	if (!harm_funcs->session_new(fd, session[fd]->client_addr)) {
-		do_close(fd);
+		sockt->close(fd);
 		return -1;
 	}
 
@@ -530,7 +542,7 @@ int make_listen_bind(uint32 ip, uint16 port)
 		exit(EXIT_FAILURE);
 	}
 
-	if(fd_max <= fd) fd_max = fd + 1;
+	if(sockt->fd_max <= fd) sockt->fd_max = fd + 1;
 	sFD_SET(fd, &readfds);
 
 	create_session(fd, connect_client, null_send, null_parse);
@@ -575,13 +587,13 @@ int make_connection(uint32 ip, uint16 port, struct hSockOpt *opt) {
 	if( result == SOCKET_ERROR ) {
 		if( !( opt && opt->silent ) )
 			ShowError("make_connection: connect failed (socket #%d, %s)!\n", fd, error_msg());
-		do_close(fd);
+		sockt->close(fd);
 		return -1;
 	}
 	//Now the socket can be made non-blocking. [Skotlex]
 	set_nonblocking(fd, 1);
 
-	if (fd_max <= fd) fd_max = fd + 1;
+	if (sockt->fd_max <= fd) sockt->fd_max = fd + 1;
 	sFD_SET(fd,&readfds);
 
 	create_session(fd, recv_to_fifo, send_from_fifo, default_func_parse);
@@ -600,7 +612,7 @@ static int create_session(int fd, RecvFunc func_recv, SendFunc func_send, ParseF
 	session[fd]->func_recv  = func_recv;
 	session[fd]->func_send  = func_send;
 	session[fd]->func_parse = func_parse;
-	session[fd]->rdata_tick = last_tick;
+	session[fd]->rdata_tick = sockt->last_tick;
 	session[fd]->session_data = NULL;
 	session[fd]->hdata = NULL;
 	session[fd]->hdatac = 0;
@@ -609,7 +621,7 @@ static int create_session(int fd, RecvFunc func_recv, SendFunc func_send, ParseF
 
 static void delete_session(int fd)
 {
-	if( session_isValid(fd) ) {
+	if( sockt->session_isValid(fd) ) {
 		unsigned int i;
 #ifdef SHOW_SERVER_STATS
 		socket_data_qi -= session[fd]->rdata_size - session[fd]->rdata_pos;
@@ -617,18 +629,18 @@ static void delete_session(int fd)
 #endif
 		aFree(session[fd]->rdata);
 		aFree(session[fd]->wdata);
+		if (session[fd]->harm_sd)
+			harm_funcs->session_del(fd);
 		if( session[fd]->session_data )
 			aFree(session[fd]->session_data);
 		for(i = 0; i < session[fd]->hdatac; i++) {
 			if( session[fd]->hdata[i]->flag.free ) {
 				aFree(session[fd]->hdata[i]->data);
-				aFree(session[fd]->hdata[i]);
 			}
+			aFree(session[fd]->hdata[i]);
 		}
 		if( session[fd]->hdata )
 			aFree(session[fd]->hdata);
-		if (session[fd]->harm_sd)
-			harm_funcs->session_del(fd);
 		aFree(session[fd]);
 		session[fd] = NULL;
 	}
@@ -636,7 +648,7 @@ static void delete_session(int fd)
 
 int realloc_fifo(int fd, unsigned int rfifo_size, unsigned int wfifo_size)
 {
-	if( !session_isValid(fd) )
+	if( !sockt->session_isValid(fd) )
 		return 0;
 
 	if( session[fd]->max_rdata != rfifo_size && session[fd]->rdata_size < rfifo_size) {
@@ -655,7 +667,7 @@ int realloc_writefifo(int fd, size_t addition)
 {
 	size_t newsize;
 
-	if( !session_isValid(fd) ) // might not happen
+	if( !sockt->session_isValid(fd) ) // might not happen
 		return 0;
 
 	if( session[fd]->wdata_size + addition  > session[fd]->max_wdata )
@@ -683,7 +695,7 @@ int RFIFOSKIP(int fd, size_t len)
 {
     struct socket_data *s;
 
-	if ( !session_isActive(fd) )
+	if ( !sockt->session_isActive(fd) )
 		return 0;
 
 	s = session[fd];
@@ -706,7 +718,7 @@ int WFIFOSET(int fd, size_t len)
 	size_t newreserve;
 	struct socket_data* s = session[fd];
 
-	if( !session_isValid(fd) || s->wdata == NULL )
+	if( !sockt->session_isValid(fd) || s->wdata == NULL )
 		return 0;
 
 	// we have written len bytes to the buffer already before calling WFIFOSET
@@ -749,6 +761,7 @@ int WFIFOSET(int fd, size_t len)
 		}
 
 	}
+	
 	if (!session[fd]->flag.server)
 		harm_funcs->net_send(fd, s->wdata+s->wdata_size, len);
 
@@ -785,7 +798,7 @@ int do_sockets(int next)
 #ifdef SEND_SHORTLIST
 	send_shortlist_do_sends();
 #else
-	for (i = 1; i < fd_max; i++)
+	for (i = 1; i < sockt->fd_max; i++)
 	{
 		if(!session[i])
 			continue;
@@ -800,7 +813,7 @@ int do_sockets(int next)
 	timeout.tv_usec = next%1000*1000;
 
 	memcpy(&rfd, &readfds, sizeof(rfd));
-	ret = sSelect(fd_max, &rfd, NULL, NULL, &timeout);
+	ret = sSelect(sockt->fd_max, &rfd, NULL, NULL, &timeout);
 
 	if( ret == SOCKET_ERROR )
 	{
@@ -812,7 +825,7 @@ int do_sockets(int next)
 		return 0; // interrupted by a signal, just loop and try again
 	}
 
-	last_tick = time(NULL);
+	sockt->last_tick = time(NULL);
 
 #if defined(WIN32)
 	// on windows, enumerating all members of the fd_set is way faster if we access the internals
@@ -824,7 +837,7 @@ int do_sockets(int next)
 	}
 #else
 	// otherwise assume that the fd_set is a bit-array and enumerate it in a standard way
-	for( i = 1; ret && i < fd_max; ++i )
+	for( i = 1; ret && i < sockt->fd_max; ++i )
 	{
 		if(sFD_ISSET(i,&rfd) && session[i])
 		{
@@ -838,7 +851,7 @@ int do_sockets(int next)
 #ifdef SEND_SHORTLIST
 	send_shortlist_do_sends();
 #else
-	for (i = 1; i < fd_max; i++)
+	for (i = 1; i < sockt->fd_max; i++)
 	{
 		if(!session[i])
 			continue;
@@ -847,19 +860,19 @@ int do_sockets(int next)
 			session[i]->func_send(i);
 
 		if(session[i]->flag.eof) //func_send can't free a session, this is safe.
-		{	//Finally, even if there is no data to parse, connections signalled eof should be closed, so we call parse_func [Skotlex]
+		{	//Finally, even if there is no data to parse, connections signaled eof should be closed, so we call parse_func [Skotlex]
 			session[i]->func_parse(i); //This should close the session immediately.
 		}
 	}
 #endif
 
 	// parse input data on each socket
-	for(i = 1; i < fd_max; i++)
+	for(i = 1; i < sockt->fd_max; i++)
 	{
 		if(!session[i])
 			continue;
 
-		if (session[i]->rdata_tick && DIFF_TICK(last_tick, session[i]->rdata_tick) > stall_time) {
+		if (session[i]->rdata_tick && DIFF_TICK(sockt->last_tick, session[i]->rdata_tick) > sockt->stall_time) {
 			if( session[i]->flag.server ) {/* server is special */
 				if( session[i]->flag.ping != 2 )/* only update if necessary otherwise it'd resend the ping unnecessarily */
 					session[i]->flag.ping = 1;
@@ -869,21 +882,25 @@ int do_sockets(int next)
 			}
 		}
 
+#ifdef __clang_analyzer__
+		// Let Clang's static analyzer know this never happens (it thinks it might because of a NULL check in session_isValid)
+		if (!session[i]) continue;
+#endif // __clang_analyzer__
 		session[i]->func_parse(i);
 
 		if(!session[i])
 			continue;
-
+		
+		RFIFOFLUSH(i);
 		// after parse, check client's RFIFO size to know if there is an invalid packet (too big and not parsed)
 		if (session[i]->rdata_size == session[i]->max_rdata) {
 			set_eof(i);
 			continue;
 		}
-		RFIFOFLUSH(i);
 	}
 
 #ifdef SHOW_SERVER_STATS
-	if (last_tick != socket_data_last_tick)
+	if (sockt->last_tick != socket_data_last_tick)
 	{
 		char buf[1024];
 		
@@ -893,7 +910,7 @@ int do_sockets(int next)
 #else
 		ShowMessage("\033[s\033[1;1H\033[2K%s\033[u", buf);
 #endif
-		socket_data_last_tick = last_tick;
+		socket_data_last_tick = sockt->last_tick;
 		socket_data_i = socket_data_ci = 0;
 		socket_data_o = socket_data_co = 0;
 	}
@@ -910,7 +927,7 @@ int do_sockets(int next)
 typedef struct _connect_history {
 	struct _connect_history* next;
 	uint32 ip;
-	uint32 tick;
+	int64 tick;
 	int count;
 	unsigned ddos : 1;
 } ConnectHistory;
@@ -1026,9 +1043,9 @@ static int connect_check_(uint32 ip)
 			if( hist->ddos )
 			{// flagged as DDoS
 				return (connect_ok == 2 ? 1 : 0);
-			} else if( DIFF_TICK(iTimer->gettick(),hist->tick) < ddos_interval )
+			} else if( DIFF_TICK(timer->gettick(),hist->tick) < ddos_interval )
 			{// connection within ddos_interval
-				hist->tick = iTimer->gettick();
+				hist->tick = timer->gettick();
 				if( hist->count++ >= ddos_count )
 				{// DDoS attack detected
 					hist->ddos = 1;
@@ -1038,7 +1055,7 @@ static int connect_check_(uint32 ip)
 				return connect_ok;
 			} else
 			{// not within ddos_interval, clear data
-				hist->tick  = iTimer->gettick();
+				hist->tick  = timer->gettick();
 				hist->count = 0;
 				return connect_ok;
 			}
@@ -1049,7 +1066,7 @@ static int connect_check_(uint32 ip)
 	CREATE(hist, ConnectHistory, 1);
 	memset(hist, 0, sizeof(ConnectHistory));
 	hist->ip   = ip;
-	hist->tick = iTimer->gettick();
+	hist->tick = timer->gettick();
 	hist->next = connect_history[ip&0xFFFF];
 	connect_history[ip&0xFFFF] = hist;
 	return connect_ok;
@@ -1057,8 +1074,7 @@ static int connect_check_(uint32 ip)
 
 /// Timer function.
 /// Deletes old connection history records.
-static int connect_check_clear(int tid, unsigned int tick, int id, intptr_t data)
-{
+static int connect_check_clear(int tid, int64 tick, int id, intptr_t data) {
 	int i;
 	int clear = 0;
 	int list  = 0;
@@ -1159,9 +1175,9 @@ int socket_config_read(const char* cfgName)
 			continue;
 
 		if (!strcmpi(w1, "stall_time")) {
-			stall_time = atoi(w2);
-			if( stall_time < 3 )
-				stall_time = 3;/* a minimum is required to refrain it from killing itself */
+			sockt->stall_time = atoi(w2);
+			if( sockt->stall_time < 3 )
+				sockt->stall_time = 3;/* a minimum is required to refrain it from killing itself */
 		}
 #ifndef MINICORE
 		else if (!strcmpi(w1, "enable_ip_rules")) {
@@ -1229,11 +1245,11 @@ void socket_final(void)
 		aFree(access_deny);
 #endif
 
-	for( i = 1; i < fd_max; i++ )
+	for( i = 1; i < sockt->fd_max; i++ )
 		if(session[i])
-			do_close(i);
+			sockt->close(i);
 
-	// session[0] のダミーデータを削除
+	// session[0]
 	aFree(session[0]->rdata);
 	aFree(session[0]->wdata);
 	aFree(session[0]);
@@ -1345,7 +1361,7 @@ int socket_getips(uint32* ips, int max)
 void socket_init(void)
 {
 	char *SOCKET_CONF_FILENAME = "conf/packet.conf";
-	unsigned int rlim_cur = FD_SETSIZE;
+	uint64 rlim_cur = FD_SETSIZE;
 
 #ifdef WIN32
 	{// Start up windows networking
@@ -1363,7 +1379,7 @@ void socket_init(void)
 		}
 	}
 #elif defined(HAVE_SETRLIMIT) && !defined(CYGWIN)
-	// NOTE: getrlimit and setrlimit have bogus behaviour in cygwin.
+	// NOTE: getrlimit and setrlimit have bogus behavior in cygwin.
 	//       "Number of fds is virtually unlimited in cygwin" (sys/param.h)
 	{// set socket limit to FD_SETSIZE
 		struct rlimit rlp;
@@ -1393,7 +1409,7 @@ void socket_init(void)
 #endif
 
 	// Get initial local ips
-	naddr_ = socket_getips(addr_,16);
+	sockt->naddr_ = socket_getips(sockt->addr_,16);
 
 	sFD_ZERO(&readfds);
 #if defined(SEND_SHORTLIST)
@@ -1404,8 +1420,8 @@ void socket_init(void)
 	
 	socket_config_read(SOCKET_CONF_FILENAME);
 
-	// initialise last send-receive tick
-	last_tick = time(NULL);
+	// initialize last send-receive tick
+	sockt->last_tick = time(NULL);
 
 	// session[0] is now currently used for disconnected sessions of the map server, and as such,
 	// should hold enough buffer (it is a vacuum so to speak) as it is never flushed. [Skotlex]
@@ -1414,16 +1430,14 @@ void socket_init(void)
 #ifndef MINICORE
 	// Delete old connection history every 5 minutes
 	memset(connect_history, 0, sizeof(connect_history));
-	iTimer->add_timer_func_list(connect_check_clear, "connect_check_clear");
-	iTimer->add_timer_interval(iTimer->gettick()+1000, connect_check_clear, 0, 0, 5*60*1000);
+	timer->add_func_list(connect_check_clear, "connect_check_clear");
+	timer->add_interval(timer->gettick()+1000, connect_check_clear, 0, 0, 5*60*1000);
 #endif
 
-	ShowInfo("Server supports up to '"CL_WHITE"%u"CL_RESET"' concurrent connections.\n", rlim_cur);
+	ShowInfo("Server supports up to '"CL_WHITE"%"PRId64""CL_RESET"' concurrent connections.\n", rlim_cur);
 	
 	/* Hercules Plugin Manager */
 	HPM->share(session,"session");
-	HPM->share(&fd_max,"fd_max");
-	HPM->share(addr_,"addr");
 }
 
 bool session_isValid(int fd)
@@ -1433,7 +1447,7 @@ bool session_isValid(int fd)
 
 bool session_isActive(int fd)
 {
-	return ( session_isValid(fd) && !session[fd]->flag.eof );
+	return ( sockt->session_isValid(fd) && !session[fd]->flag.eof );
 }
 
 // Resolves hostname into a numeric ip.
@@ -1459,7 +1473,7 @@ uint32 str2ip(const char* ip_str)
 }
 
 // Reorders bytes from network to little endian (Windows).
-// Neccessary for sending port numbers to the RO client until Gravity notices that they forgot ntohs() calls.
+// Necessary for sending port numbers to the RO client until Gravity notices that they forgot ntohs() calls.
 uint16 ntows(uint16 netshort)
 {
 	return ((netshort & 0xFF) << 8) | ((netshort & 0xFF00) >> 8);
@@ -1475,8 +1489,6 @@ void socket_datasync(int fd, bool send) {
 		{ sizeof(struct item) },
 		{ sizeof(struct point) },
 		{ sizeof(struct s_skill) },
-		{ sizeof(struct global_reg) },
-		{ sizeof(struct accreg) },
 		{ sizeof(struct status_change_data) },
 		{ sizeof(struct storage_data) },
 		{ sizeof(struct guild_storage) },
@@ -1487,7 +1499,6 @@ void socket_datasync(int fd, bool send) {
 		{ sizeof(struct s_friend) },
 		{ sizeof(struct mail_message) },
 		{ sizeof(struct mail_data) },
-		{ sizeof(struct registry) },
 		{ sizeof(struct party_member) },
 		{ sizeof(struct party) },
 		{ sizeof(struct guild_member) },
@@ -1498,6 +1509,7 @@ void socket_datasync(int fd, bool send) {
 		{ sizeof(struct guild) },
 		{ sizeof(struct guild_castle) },
 		{ sizeof(struct fame_list) },
+		{ PACKETVER },
 	};
 	unsigned short i;
 	unsigned int alen = ARRAYLENGTH(data_list);
@@ -1539,7 +1551,7 @@ void send_shortlist_add_fd(int fd)
 	int i;
 	int bit;
 
-	if( !session_isValid(fd) )
+	if( !sockt->session_isValid(fd) )
 		return;// out of range
 
 	i = fd/32;
@@ -1608,3 +1620,44 @@ void send_shortlist_do_sends()
 	}
 }
 #endif
+
+void socket_defaults(void) {
+	sockt = &sockt_s;
+	
+	sockt->fd_max = 0;
+	/* */
+	sockt->stall_time = 60;
+	sockt->last_tick = 0;
+	/* */
+	memset(&sockt->addr_, 0, sizeof(sockt->addr_));
+	sockt->naddr_ = 0;
+	/* */
+	sockt->init = socket_init;
+	sockt->final = socket_final;
+	/* */
+	sockt->perform = do_sockets;
+	/* */
+	sockt->datasync = socket_datasync;
+	/* */
+	sockt->make_listen_bind = make_listen_bind;
+	sockt->make_connection = make_connection;
+	sockt->realloc_fifo = realloc_fifo;
+	sockt->realloc_writefifo = realloc_writefifo;
+	sockt->WFIFOSET = WFIFOSET;
+	sockt->RFIFOSKIP = RFIFOSKIP;
+	sockt->close = do_close;
+	/* */
+	sockt->session_isValid = session_isValid;
+	sockt->session_isActive = session_isActive;
+	/* */
+	sockt->flush_fifo = flush_fifo;
+	sockt->flush_fifos = flush_fifos;
+	sockt->set_nonblocking = set_nonblocking;
+	sockt->set_defaultparse = set_defaultparse;
+	sockt->host2ip = host2ip;
+	sockt->ip2str = ip2str;
+	sockt->str2ip = str2ip;
+	sockt->ntows = ntows;
+	sockt->getips = socket_getips;
+	sockt->set_eof = set_eof;
+}

@@ -1,26 +1,13 @@
 #include "../common/harmony.h"
 #include "../common/socket.h"
 
-#if !defined(BUILDIN_FUNC)
-	#define BUILDIN_FUNC BUILDIN
-#endif
-
-#ifdef HARMONY_USE_POINTLESS_OOP_INTERFACE
-	#define map_mapname2mapid             iMap->mapname2mapid
-	
-	#define mapit_first                   mapit->first
-	#define mapit_next                    mapit->next
-	#define mapit_exists                  mapit->exists
-	#define mapit_free                    mapit->free
-#endif
-
-BUILDIN_FUNC(harm_map_multicount)
+BUILDIN(harm_map_multicount)
 {
 	const char *var = script_getstr(st,2);
 	struct map_session_data *sd = script_rid2sd(st);
 	int cnt = 0, m;
 
-	if( sd && (m = map_mapname2mapid(var)) >= 0 )
+	if( sd && (m = map->mapname2mapid(var)) >= 0 )
 	{
 		struct map_session_data* pl_sd;
 		struct s_mapiterator* iter;
@@ -29,34 +16,34 @@ BUILDIN_FUNC(harm_map_multicount)
 
 		harm_funcs->zone_get_mac_address(sd->fd,s_mac_address);
 
-		if( !strncmp(s_mac_address,"00:00:00:", 8) || !strncmp(s_mac_address,"0:0:0:", 6) || !strcmpi(s_mac_address,"00:53:45:00:00:00") )
+		if( !strncmp((const char *)s_mac_address,"00:00:00:", 8) || !strncmp((const char *)s_mac_address,"0:0:0:", 6) || !strcmpi((const char *)s_mac_address,"00:53:45:00:00:00") )
 			byip = true; // Ignored Mac Address
 
 		iter = mapit_getallusers();
-		for( pl_sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); pl_sd = (TBL_PC*)mapit_next(iter) )
+		for( pl_sd = (TBL_PC*)mapit->first(iter); mapit->exists(iter); pl_sd = (TBL_PC*)mapit->next(iter) )
 		{
 			if( pl_sd->bl.m != m )
 				continue;
 			if( !byip )
 			{
 				harm_funcs->zone_get_mac_address(pl_sd->fd,t_mac_address);
-				if( !strcmpi(s_mac_address,t_mac_address) )
+				if( !strcmpi((const char*)s_mac_address,(const char *)t_mac_address) )
 					cnt++;
 			}
 			else if( session[sd->fd]->client_addr == session[pl_sd->fd]->client_addr )
 				cnt++;
 		}
-		mapit_free(iter);
+		mapit->free(iter);
 	}
 
 	script_pushint(st,cnt);
 	return 0;
 }
 
-BUILDIN_FUNC(harm_bg_multicount)
+BUILDIN(harm_bg_multicount)
 {
 	struct map_session_data *sd = script_rid2sd(st);
-	int m = map_mapname2mapid("bat_room");
+	int m = map->mapname2mapid("bat_room");
 	int cnt = 0;
 	
 	if (sd)
@@ -68,36 +55,29 @@ BUILDIN_FUNC(harm_bg_multicount)
 
 		harm_funcs->zone_get_mac_address(sd->fd,s_mac_address);
 
-		if( !strncmp(s_mac_address,"00:00:00:", 8) || !strncmp(s_mac_address,"0:0:0:", 6) || !strcmpi(s_mac_address,"00:53:45:00:00:00") )
+		if( !strncmp((const char *)s_mac_address,"00:00:00:", 8) || !strncmp((const char *)s_mac_address,"0:0:0:", 6) || !strcmpi((const char *)s_mac_address,"00:53:45:00:00:00") )
 			byip = true; // Ignored Mac Address
-
+			
 		iter = mapit_getallusers();
-		for( pl_sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); pl_sd = (TBL_PC*)mapit_next(iter) )
+		for( pl_sd = (TBL_PC*)mapit->first(iter); mapit->exists(iter); pl_sd = (TBL_PC*)mapit->next(iter) )
 		{
-			if( pl_sd->bl.m != m && !map[pl_sd->bl.m].flag.battleground )
+			if( pl_sd->bl.m != m && !map->list[sd->bl.m].flag.battleground )
 				continue;
 			if( !byip )
 			{
 				harm_funcs->zone_get_mac_address(pl_sd->fd,t_mac_address);
-				if( !strcmpi(s_mac_address,t_mac_address) )
+				if( !strcmpi((const char *)s_mac_address,(const char *)t_mac_address) )
 					cnt++;
 			}
 			else if( session[sd->fd]->client_addr == session[pl_sd->fd]->client_addr )
 				cnt++;
 		}
-		mapit_free(iter);
+		mapit->free(iter);
 	}
 
 	script_pushint(st,cnt);
 	return 0;
 }
 
-#ifdef HARMONY_USE_POINTLESS_OOP_INTERFACE
-	#undef map_mapname2mapid
-	
-	#undef mapit_first
-	#undef mapit_next
-	#undef mapit_exists
-	#undef mapit_free
-#endif
+
 

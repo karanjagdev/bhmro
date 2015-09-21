@@ -2,12 +2,17 @@
 // See the LICENSE file
 // Portions Copyright (c) Athena Dev Teams
 
-#ifndef _SHOWMSG_H_
-#define _SHOWMSG_H_
+#ifndef _COMMON_SHOWMSG_H_
+#define _COMMON_SHOWMSG_H_
 
-#ifndef _HPMi_H_
-	#include "../../3rdparty/libconfig/libconfig.h"
+#include <stdarg.h>
+
+#ifdef HERCULES_CORE
+#	include "../../3rdparty/libconfig/libconfig.h"
+#else
+#	include "../common/HPMi.h"
 #endif
+
 // for help with the console colors look here:
 // http://www.edoceo.com/liberum/?doc=printf-with-color
 // some code explanation (used here):
@@ -67,9 +72,9 @@
 #define CL_XXBL			"\033[0;44m"	// default on blue
 #define CL_PASS			"\033[0;32;42m"	// green on green
 
-#define CL_SPACE		"           "	// space aquivalent of the print messages
+#define CL_SPACE		"           "	// space equivalent of the print messages
 
-extern int stdout_with_ansisequence; //If the color ansi sequences are to be used. [flaviojs]
+extern int stdout_with_ansisequence; //If the color ANSI sequences are to be used. [flaviojs]
 extern int msg_silent; //Specifies how silent the console is. [Skotlex]
 extern int console_msg_log; //Specifies what error messages to log. [Ind]
 extern char timestamp_format[20]; //For displaying Timestamps [Skotlex]
@@ -87,7 +92,7 @@ enum msg_type {
 };
 
 extern void ClearScreen(void);
-#ifndef _HPMi_H_
+#ifdef HERCULES_CORE
 	extern void ShowMessage(const char *, ...);
 	extern void ShowStatus(const char *, ...);
 	extern void ShowSQL(const char *, ...);
@@ -98,6 +103,18 @@ extern void ClearScreen(void);
 	extern void ShowError(const char *, ...);
 	extern void ShowFatalError(const char *, ...);
 	extern void ShowConfigWarning(config_setting_t *config, const char *string, ...);
+#else
+	HPExport void (*ShowMessage) (const char *, ...);
+	HPExport void (*ShowStatus) (const char *, ...);
+	HPExport void (*ShowSQL) (const char *, ...);
+	HPExport void (*ShowInfo) (const char *, ...);
+	HPExport void (*ShowNotice) (const char *, ...);
+	HPExport void (*ShowWarning) (const char *, ...);
+	HPExport void (*ShowDebug) (const char *, ...);
+	HPExport void (*ShowError) (const char *, ...);
+	HPExport void (*ShowFatalError) (const char *, ...);
 #endif
 
-#endif /* _SHOWMSG_H_ */
+extern int _vShowMessage(enum msg_type flag, const char *string, va_list ap);
+
+#endif /* _COMMON_SHOWMSG_H_ */
