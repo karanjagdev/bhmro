@@ -2812,6 +2812,51 @@ packet(0x020d,-1);
 
 #if PACKETVER >= 20111122
 	packetKeys(0x3B550F07,0x1F666C7C,0x60304EF5); /* Thanks to Shakto */
+//2011-11-22aRagexeRE
+packet(0x01FD,15,clif->pRepairItem,2);
+packet(0x0891,26,clif->pFriendsListAdd,2);
+packet(0x089E,5,clif->pHomMenu,2,4);
+packet(0x0364,36,clif->pStoragePassword,0);
+packet(0x0288,-1,clif->pCashShopBuy,4,8);
+packet(0x0895,26,clif->pPartyInvite2,2);
+packet(0x0835,19,clif->pWantToConnection,2:6,10,14,18);
+packet(0x022D,7,clif->pActionRequest,2,6);
+packet(0x08A1,10,clif->pUseSkillToId,2,4,6);
+packet(0x0439,8,clif->pUseItem,2,4);
+packet(0x0369,-1,clif->pItemListWindowSelected,2,4,8);
+packet(0x0202,18,clif->pPartyBookingRegisterReq,2,4,6);
+packet(0x0803,4);
+packet(0x0804,14,clif->pPartyBookingSearchReq,2,4,6,8,12);
+packet(0x0805,-1);
+packet(0x0806,2,clif->pPartyBookingDeleteReq,0);
+packet(0x0807,4);
+packet(0x0808,14,clif->pPartyBookingUpdateReq,2);
+packet(0x0809,50);
+packet(0x080A,18);
+packet(0x080B,6);
+packet(0x0887,-1,clif->pReqOpenBuyingStore,2,4,8,9,89);
+packet(0x08A9,2,clif->pReqCloseBuyingStore,0);
+packet(0x088C,6,clif->pReqClickBuyingStore,2);
+packet(0x089D,-1,clif->pReqTradeBuyingStore,2,4,8,12);
+packet(0x07EC,-1,clif->pSearchStoreInfo,2,4,5,9,13,14,15);
+packet(0x0815,2,clif->pSearchStoreInfoNextPage,0);
+packet(0x0366,12,clif->pSearchStoreInfoListItemClick,2,6,10);
+packet(0x0892,5,clif->pWalkToXY,2);
+packet(0x0899,6,clif->pTickSend,2);
+packet(0x0896,5,clif->pChangeDir,2,4);
+packet(0x0893,6,clif->pTakeItem,2);
+packet(0x0436,6,clif->pDropItem,2,4);
+packet(0x08A4,8,clif->pMoveToKafra,2,4);
+packet(0x0362,8,clif->pMoveFromKafra,2,4);
+packet(0x08AD,10,clif->pUseSkillToPos,2,4,6,8);
+packet(0x0363,90,clif->pUseSkillToPosInfo,2,4,6,8,10);
+packet(0x0898,6,clif->pGetCharNameRequest,2);
+packet(0x035F,6,clif->pSolveCharName,2);
+packet(0x0907,5,clif->pMoveItem,2,4);
+packet(0x0908,5);
+//0x08D7,28,battlegroundreg,2,4 //Added to prevent disconnections
+
+
 #endif
 
 #if PACKETVER >= 20111207
