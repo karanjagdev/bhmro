@@ -269,6 +269,10 @@ OnInit:
 	sellitem Flash_Shuriken;
 	sellitem Sharp_Leaf_Shuriken;
 	sellitem Thorn_Needle_Shuriken;
+	if (RENEWAL) {
+		sellitem Explosive_Kunai;
+		sellitem Makibishi;
+	}
 }
 
 que_ng,73,26,5	trader	Boonray#nin	4_M_01,{
@@ -278,6 +282,14 @@ OnInit:
 	sellitem Ice_Stone;
 	sellitem Wind_Stone;
 	sellitem Shadow_Orb;
+	sellitem Charm_Fire;
+	sellitem Charm_Ice;
+	sellitem Charm_Wind;
+	sellitem Charm_Earth;
+	if (RENEWAL) {
+		sellitem Fox_Armguard;
+		sellitem Special_Ninja_Suit;
+	}
 }
 
 
@@ -331,7 +343,7 @@ OnInit:
 	sellitem Belt;
 }
 
-
+/*
 //=======================================================
 // Brasilis
 //=======================================================
@@ -368,7 +380,7 @@ OnInit:
 	sellitem Asai_Fruit;
 }
 
-
+*/
 //=======================================================
 // Comodo
 //=======================================================
@@ -748,7 +760,7 @@ OnInit:
 	sellitem Wooden_Mail;
 	sellitem Belt;
 }
-
+/*
 
 //=======================================================
 // Hugel
@@ -820,7 +832,7 @@ OnInit:
 	sellitem Mantle;
 	sellitem Shield;
 }
-
+*/
 
 //=======================================================
 // Izlude
@@ -1005,7 +1017,7 @@ yuno_in03,176,22,3	trader	Scroll Merchant#yuno03	4_M_ORIENT02,{
 OnInit:
 	sellitem Scroll; //Temp shop in Yuno that sells Blank Scrolls
 }
-
+/*
 
 //=======================================================
 // Lighthalzen
@@ -1199,7 +1211,7 @@ OnInit:
 	sellitem Zargon;
 	sellitem Monster's_Feed;
 }
-
+*/
 
 //=======================================================
 // Louyang
@@ -1476,7 +1488,7 @@ OnInit:
 	sellitem Cinquedea;
 }
 
-
+/*
 //=======================================================
 // Moscovia
 //=======================================================
@@ -1539,7 +1551,7 @@ OnInit:
 	sellitem Milk;
 }
 
-
+*/
 //=======================================================
 // Niflheim
 //=======================================================
@@ -1897,7 +1909,7 @@ OnInit:
 	sellitem Hora;
 }
 
-
+/*
 //=======================================================
 // Rachel
 //=======================================================
@@ -1962,7 +1974,7 @@ OnInit:
 	sellitem Pumpkin;
 	sellitem Sweet_Potato;
 }
-
+*/
 
 //=======================================================
 // Turtle Island
@@ -2015,7 +2027,7 @@ OnInit:
 	sellitem Finger;
 	sellitem Claw;
 }
-
+/*
 
 //=======================================================
 // Veins
@@ -2087,7 +2099,7 @@ OnInit:
 	sellitem Silk_Robe;
 	sellitem Silver_Robe;
 }
-
+*/
 
 //=======================================================
 // Cooking Addition

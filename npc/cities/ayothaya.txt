@@ -91,7 +91,7 @@ ayothaya,152,68,1	script	Aibakthing#ayo2	4_M_THAIONGBAK,{
 		mes "[Aibakthing]";
 		mes "You will be welcome to come back whenever you please. I hope that we will see each other again sometime soon. Thank you~";
 		close2;
-		if (checkre(0))
+		if (RENEWAL)
 			warp "alberta",235,45;
 		else
 			warp "alberta",238,22;
@@ -122,7 +122,7 @@ ayothaya,189,120,3	script	Young Man#Thang	4_M_THAIONGBAK,{
 }
 	
 ayothaya,171,152,5	script	Girl#Lalitha	4_F_THAIAYO,{
-	set .@sit,rand(1,5);
+	.@sit = rand(1,5);
 	if (.@sit > 0 && .@sit < 3) {
 		mes "[Lalitha]";
 		mes "Hello!";

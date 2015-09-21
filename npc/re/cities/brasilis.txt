@@ -57,7 +57,7 @@ brasilis,316,57,3	script	Crewman#bra1	4W_SAILOR,{
 		mes "[Crewman]";
 		mes "I sure do miss home.";
 		close2;
-		if (checkre(0))
+		if (RENEWAL)
 			warp "alberta",243,82;
 		else
 			warp "alberta",244,115;
@@ -132,7 +132,7 @@ brasilis,137,77,5	script	Ice-Cream Maker	4_M_03,{
 			else
 				break;
 		}
-		set .@icecream_hap,.@input*100;
+		.@icecream_hap = .@input*100;
 		if (Zeny < .@icecream_hap) {
 			mes "[Ice Cream Maker]";
 			mes "Dood~! You don't have enough money.";
