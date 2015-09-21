@@ -2849,7 +2849,7 @@ packet(0x0436,6,clif->pDropItem,2,4);
 packet(0x08A4,8,clif->pMoveToKafra,2,4);
 packet(0x0362,8,clif->pMoveFromKafra,2,4);
 packet(0x08AD,10,clif->pUseSkillToPos,2,4,6,8);
-packet(0x0363,90,clif->pUseSkillToPosInfo,2,4,6,8,10);
+packet(0x0363,90,clif->pUseSkillToPosMoreInfo,2,4,6,8,10);
 packet(0x0898,6,clif->pGetCharNameRequest,2);
 packet(0x035F,6,clif->pSolveCharName,2);
 packet(0x0907,5,clif->pMoveItem,2,4);
