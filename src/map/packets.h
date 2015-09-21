@@ -2819,7 +2819,7 @@ packet(0x089E,5,clif->pHomMenu,2,4);
 packet(0x0364,36,clif->pStoragePassword,0);
 packet(0x0288,-1,clif->pCashShopBuy,4,8);
 packet(0x0895,26,clif->pPartyInvite2,2);
-packet(0x0835,19,clif->pWantToConnection,2:6,10,14,18);
+packet(0x0835,19,clif->pWantToConnection,2,6,10,14,18);
 packet(0x022D,7,clif->pActionRequest,2,6);
 packet(0x08A1,10,clif->pUseSkillToId,2,4,6);
 packet(0x0439,8,clif->pUseItem,2,4);
